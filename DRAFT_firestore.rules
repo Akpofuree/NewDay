@@ -1,0 +1,128 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 1. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- GLOBAL HELPERS / PRIMITIVES ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- SCHEMA VALIDATION HELPERS ---
+    function isValidUser(data) {
+      return data.id is string && data.id.size() <= 128
+        && data.name is string && data.name.size() <= 128
+        && data.email is string && data.email.size() <= 128
+        && (data.avatarUrl == null || (data.avatarUrl is string && data.avatarUrl.size() <= 1024))
+        && (data.xpPoints == null || data.xpPoints is number)
+        && (data.streakCount == null || data.streakCount is number);
+    }
+
+    function isValidGroup(data) {
+      return data.id is string && data.id.size() <= 128
+        && data.name is string && data.name.size() <= 128
+        && data.color is string && data.color.size() <= 32
+        && (data.description == null || (data.description is string && data.description.size() <= 2048))
+        && data.memberIds is list;
+    }
+
+    function isValidTask(data) {
+      return data.id is string && data.id.size() <= 128
+        && data.title is string && data.title.size() <= 256
+        && (data.description == null || (data.description is string && data.description.size() <= 4096))
+        && data.status is string && data.status.size() <= 64
+        && data.priority is string && data.priority.size() <= 64
+        && (data.dueDate == null || (data.dueDate is string && data.dueDate.size() <= 128))
+        && (data.assigneeId == null || (data.assigneeId is string && data.assigneeId.size() <= 128))
+        && (data.groupId == null || (data.groupId is string && data.groupId.size() <= 128))
+        && data.subtasks is list
+        && data.comments is list
+        && data.activities is list
+        && data.createdAt is string;
+    }
+
+    function isValidChannel(data) {
+      return data.id is string && data.id.size() <= 128
+        && data.name is string && data.name.size() <= 128
+        && (data.description == null || (data.description is string && data.description.size() <= 1024));
+    }
+
+    function isValidMessage(data) {
+      return data.id is string && data.id.size() <= 128
+        && data.channelId is string && data.channelId.size() <= 128
+        && data.senderId is string && data.senderId.size() <= 128
+        && data.content is string && data.content.size() <= 4096
+        && data.createdAt is string;
+    }
+
+    function isValidGoal(data) {
+      return data.id is string && data.id.size() <= 128
+        && data.title is string && data.title.size() <= 256
+        && (data.description == null || (data.description is string && data.description.size() <= 4096))
+        && (data.targetDate == null || (data.targetDate is string && data.targetDate.size() <= 128))
+        && data.progress is number
+        && data.linkedTaskIds is list;
+    }
+
+    // --- COLLECTION MATCHES & RULES ---
+
+    match /users/{userId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create, update: if isSignedIn() && isValidId(userId) && isOwner(userId) && isValidUser(incoming());
+      allow delete: if isSignedIn() && isOwner(userId);
+    }
+
+    match /groups/{groupId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn() && isValidId(groupId) && isValidGroup(incoming());
+      allow delete: if isSignedIn();
+    }
+
+    match /tasks/{taskId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn() && isValidId(taskId) && isValidTask(incoming());
+      allow delete: if isSignedIn();
+    }
+
+    match /channels/{channelId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn() && isValidId(channelId) && isValidChannel(incoming());
+      allow delete: if isSignedIn();
+    }
+
+    match /chatMessages/{messageId} {
+      allow read: if isSignedIn();
+      // Enforce sender integrity
+      allow create: if isSignedIn() && isValidId(messageId) && isValidMessage(incoming()) && incoming().senderId == request.auth.uid;
+      allow update: if isSignedIn() && isValidId(messageId) && isValidMessage(incoming()) && existing().senderId == request.auth.uid;
+      allow delete: if isSignedIn() && existing().senderId == request.auth.uid;
+    }
+
+    match /goals/{goalId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn() && isValidId(goalId) && isValidGoal(incoming());
+      allow delete: if isSignedIn();
+    }
+  }
+}

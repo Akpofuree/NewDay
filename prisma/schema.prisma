@@ -1,0 +1,91 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+
+  tasks Task[]
+  ownedGroups WorkspaceGroup[] @relation("GroupOwner")
+  channelsCreated Channel[] @relation("ChannelCreator")
+  channelMemberships ChannelMember[]
+  messages Message[]
+}
+
+model Task {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  completed   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  userId String
+  user   User @relation(fields: [userId], references: [id])
+}
+
+model WorkspaceGroup {
+  id          String   @id
+  ownerId     String?  @map("user_id")
+  payload     Json
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  owner    User? @relation("GroupOwner", fields: [ownerId], references: [id])
+  channels Channel[]
+
+  @@map("groups")
+}
+
+model Channel {
+  id          String   @id
+  groupId     String   @map("group_id")
+  name        String
+  description String?
+  createdBy   String?  @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  group       WorkspaceGroup @relation(fields: [groupId], references: [id])
+  creator     User? @relation("ChannelCreator", fields: [createdBy], references: [id])
+  members     ChannelMember[]
+  messages    Message[]
+
+  @@unique([groupId, name])
+  @@map("channels")
+}
+
+model ChannelMember {
+  channelId  String    @map("channel_id")
+  userId     String    @map("user_id")
+  lastReadAt DateTime? @map("last_read_at")
+  joinedAt   DateTime  @default(now()) @map("joined_at")
+
+  channel Channel @relation(fields: [channelId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@id([channelId, userId])
+  @@map("channel_members")
+}
+
+model Message {
+  id          String   @id
+  channelId   String   @map("channel_id")
+  senderId    String   @map("sender_id")
+  content     String
+  attachments Json     @default("[]")
+  payload     Json     @default("{}")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @map("updated_at")
+
+  channel Channel @relation(fields: [channelId], references: [id])
+  sender  User    @relation(fields: [senderId], references: [id])
+
+  @@map("channel_messages")
+}

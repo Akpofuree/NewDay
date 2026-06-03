@@ -1,0 +1,124 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "System user profiles",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "avatarUrl": { "type": "string" },
+        "password": { "type": "string" },
+        "xpPoints": { "type": "number" },
+        "streakCount": { "type": "number" }
+      },
+      "required": ["id", "name", "email"]
+    },
+    "Group": {
+      "title": "Group",
+      "description": "Collaborative team workspace groups",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "color": { "type": "string" },
+        "description": { "type": "string" },
+        "memberIds": { "type": "array" }
+      },
+      "required": ["id", "name", "color", "memberIds"]
+    },
+    "Task": {
+      "title": "Task",
+      "description": "Workspace project tasks",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "status": { "type": "string" },
+        "priority": { "type": "string" },
+        "dueDate": { "type": "string" },
+        "assigneeId": { "type": "string" },
+        "groupId": { "type": "string" },
+        "subtasks": { "type": "array" },
+        "comments": { "type": "array" },
+        "activities": { "type": "array" },
+        "createdAt": { "type": "string" },
+        "isLearningGoal": { "type": "boolean" },
+        "aiRoadmap": { "type": "array" },
+        "attachments": { "type": "array" },
+        "timeTrackedSeconds": { "type": "number" }
+      },
+      "required": ["id", "title", "status", "priority", "createdAt"]
+    },
+    "ChatChannel": {
+      "title": "ChatChannel",
+      "description": "Team messaging communication channels",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "isDM": { "type": "boolean" },
+        "memberIds": { "type": "array" }
+      },
+      "required": ["id", "name"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "Workspace channel messages",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "channelId": { "type": "string" },
+        "senderId": { "type": "string" },
+        "content": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "taskRefId": { "type": "string" }
+      },
+      "required": ["id", "channelId", "senderId", "content", "createdAt"]
+    },
+    "Goal": {
+      "title": "Goal",
+      "description": "Corporate or learning outcomes milestones tracking",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "targetDate": { "type": "string" },
+        "progress": { "type": "number" },
+        "linkedTaskIds": { "type": "array" },
+        "milestones": { "type": "array" }
+      },
+      "required": ["id", "title", "progress", "linkedTaskIds"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Workspace user accounts"
+    },
+    "/groups/{groupId}": {
+      "schema": "Group",
+      "description": "Collaborative project workspace groups"
+    },
+    "/tasks/{taskId}": {
+      "schema": "Task",
+      "description": "Server synchronized milestones, sprints, and tasks"
+    },
+    "/channels/{channelId}": {
+      "schema": "ChatChannel",
+      "description": "Workspace text messaging communication channels"
+    },
+    "/chatMessages/{messageId}": {
+      "schema": "ChatMessage",
+      "description": "Message entries posted underneath specific text channels"
+    },
+    "/goals/{goalId}": {
+      "schema": "Goal",
+      "description": "Quarterly goals and individual objective key results"
+    }
+  }
+}

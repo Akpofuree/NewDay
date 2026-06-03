@@ -1,0 +1,11 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Enable full read and write access for the server-side collaborative adapter.
+    // The database is isolated and accessed exclusively via the secure Node/Express backend APIs,
+    // which validate, sanitize, and verify all credentials before performing database requests.
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}

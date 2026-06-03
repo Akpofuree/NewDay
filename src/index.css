@@ -1,0 +1,123 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import "tailwindcss";
+
+@variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sora: "Plus Jakarta Sans", "Inter", sans-serif;
+  --font-sans: "Plus Jakarta Sans", "Inter", sans-serif;
+  --font-inter: "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+}
+
+/* Base style resets and dynamic background gradients */
+body {
+  font-family: "Plus Jakarta Sans", "Inter", sans-serif;
+  letter-spacing: -0.015em;
+  overflow-x: hidden;
+  margin: 0;
+  padding: 0;
+}
+
+/* Fine-line completed item decorations */
+.completed-task-title {
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+  text-decoration-color: rgba(156, 163, 175, 0.4);
+  color: #9CA3AF;
+  opacity: 0.75;
+}
+
+.dark .completed-task-title {
+  text-decoration-color: rgba(107, 114, 128, 0.45);
+  color: #6B7280;
+}
+
+/* Custom high-fidelity glassy panel styled for light & dark modes */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+}
+
+.dark .glass-panel {
+  background: rgba(18, 18, 32, 0.6);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.sidebar-glass {
+  background: rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(24px);
+  border-right: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.dark .sidebar-glass {
+  background: rgba(15, 15, 26, 0.55);
+  backdrop-filter: blur(24px);
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.04);
+}
+
+.dark .glass-card {
+  background: rgba(30, 30, 50, 0.65);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.35);
+}
+
+.gradient-bg {
+  background-color: #F7F7FB;
+  background-image: radial-gradient(circle at 0% 0%, rgba(92, 39, 254, 0.08) 0%, transparent 40%),
+                    radial-gradient(circle at 100% 100%, rgba(255, 77, 77, 0.05) 0%, transparent 40%);
+}
+
+.dark .gradient-bg {
+  background-color: #0F0F1A;
+  background-image: radial-gradient(circle at 0% 0%, rgba(92, 39, 254, 0.15) 0%, transparent 50%),
+                    radial-gradient(circle at 100% 100%, rgba(255, 77, 77, 0.08) 0%, transparent 50%);
+}
+
+.glass-input {
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.dark .glass-input {
+  background: rgba(15, 15, 26, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Sleek minimalist scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: 999px;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* Smooth background color transitions */
+* {
+  transition-property: background-color, border-color, text-decoration-color, fill, stroke;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}
+

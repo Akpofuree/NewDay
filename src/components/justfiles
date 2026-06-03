@@ -1,0 +1,23 @@
+WEEK 1 — AI Can Do All Of This:
+├── Fix chat persistence (messages saving to DB)
+├── Add sorting to task lists
+├── Add tags/labels
+└── Connect Goals/Analytics to real data
+
+WEEK 2 — Mix of AI + You:
+├── AI: Build subtasks feature
+├── AI: Bulk actions
+├── YOU: Set up real email service
+└── YOU: Configure Google OAuth properly
+
+WEEK 3 — Mostly You:
+├── YOU: Set up production database
+├── YOU: Choose hosting
+├── AI: Replace polling with WebSockets
+└── AI: File upload UI (once YOU set up storage)
+
+WEEK 4+ — Polish:
+├── Calendar view (AI)
+├── @mentions (AI)
+├── Account lockout (AI)
+└── Error logging (YOU sets up Sentry, AI wires it in)

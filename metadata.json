@@ -1,0 +1,6 @@
+{
+  "name": "Collaborative Task Manager",
+  "description": "A high-fidelity desktop-first task management application styled with a glassy, clean aesthetic featuring list and Kanban views, collaborative workspaces, subtasks, comments, activity logging, and personalized workspace control.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
