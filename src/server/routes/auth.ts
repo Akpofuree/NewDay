@@ -5,9 +5,11 @@ import { z } from "zod";
 import { config } from "../config";
 import { makeId, query } from "../db";
 import { AppError } from "../errors";
+import { logger } from "../logger";
 import { sanitizeValue } from "../sanitize";
 import {
   clearSessionCookie,
+  requireAdmin,
   requireAuth,
   setSessionCookie,
   signSession,
@@ -16,8 +18,10 @@ import { authRateLimit } from "../middleware/security";
 import {
   sendPasswordResetEmail,
   sendVerificationEmail,
+  sendWelcomeEmail,
 } from "../services/emailService";
 import { verifyGoogleIdToken } from "../services/oauth";
+import { validatePassword } from "../utils/passwordValidator";
 
 export const authRouter = Router();
 
@@ -30,6 +34,12 @@ type UserRow = {
   timezone?: string | null;
   notification_preferences?: Record<string, boolean> | null;
   password_hash?: string | null;
+  oauth_provider?: string;
+  oauth_provider_id?: string | null;
+  email_verified_at?: string | null;
+  failed_login_attempts?: number;
+  locked_until?: string | null;
+  permanently_locked?: boolean;
   created_at?: string;
 };
 
@@ -40,7 +50,7 @@ const googleLoginSchema = z.object({
 const localSignupSchema = z.object({
   name: z.string().min(1).max(120),
   email: z.string().email().max(255),
-  password: z.string().min(8).max(200),
+  password: z.string().min(1).max(200),
 });
 
 const localLoginSchema = z.object({
@@ -54,11 +64,15 @@ const resetRequestSchema = z.object({
 
 const consumeResetSchema = z.object({
   token: z.string().min(20),
-  password: z.string().min(8).max(200),
+  password: z.string().min(1).max(200),
 });
 
 const verifyEmailSchema = z.object({
   token: z.string().min(20),
+});
+
+const unlockSchema = z.object({
+  email: z.string().email().max(255),
 });
 
 function userResponse(row: {
@@ -98,6 +112,16 @@ async function issueSessionForUser(
   setSessionCookie(res, token);
 }
 
+function lockoutMinutesRemaining(lockedUntil: string) {
+  const remainingMs = new Date(lockedUntil).getTime() - Date.now();
+  return Math.max(1, Math.ceil(remainingMs / 60_000));
+}
+
+function lockoutSecondsRemaining(lockedUntil: string) {
+  const remainingMs = new Date(lockedUntil).getTime() - Date.now();
+  return Math.max(1, Math.ceil(remainingMs / 1000));
+}
+
 authRouter.get("/me", requireAuth, async (req, res) => {
   const user = await query<UserRow>(
     "SELECT id, name, email, avatar_url, bio, timezone, notification_preferences, created_at FROM users WHERE id = $1",
@@ -121,13 +145,39 @@ authRouter.post("/google", authRateLimit, async (req, res, next) => {
     const profile = await verifyGoogleIdToken(idToken);
 
     const existing = await query<UserRow>(
-      "SELECT id, name, email, avatar_url, created_at FROM users WHERE email = $1",
+      `SELECT id, name, email, avatar_url, password_hash, oauth_provider, oauth_provider_id, created_at
+       FROM users WHERE email = $1`,
       [profile.email],
     );
 
-    const user =
-      existing.rows[0] ||
-      (
+    let user: UserRow;
+
+    if (existing.rows[0]) {
+      const row = existing.rows[0];
+
+      // Password-registered account with the same email — do not create a duplicate.
+      if (row.oauth_provider === "local" && row.password_hash) {
+        throw new AppError(
+          409,
+          "An account with this email already exists. Please sign in with your email and password.",
+          "EMAIL_EXISTS_PASSWORD",
+        );
+      }
+
+      // Link Google to an existing OAuth-only account or refresh provider metadata.
+      const linked = await query<UserRow>(
+        `UPDATE users
+         SET oauth_provider = 'google',
+             oauth_provider_id = $1,
+             avatar_url = COALESCE(avatar_url, $2),
+             name = COALESCE(NULLIF(name, ''), $3)
+         WHERE id = $4
+         RETURNING id, name, email, avatar_url, created_at`,
+        [profile.providerId, profile.avatarUrl, profile.name, row.id],
+      );
+      user = linked.rows[0];
+    } else {
+      user = (
         await query<UserRow>(
           `INSERT INTO users (id, name, email, avatar_url, oauth_provider, oauth_provider_id)
            VALUES ($1, $2, $3, $4, 'google', $5)
@@ -141,6 +191,7 @@ authRouter.post("/google", authRateLimit, async (req, res, next) => {
           ],
         )
       ).rows[0];
+    }
 
     await query(
       "UPDATE users SET email_verified_at = COALESCE(email_verified_at, NOW()) WHERE id = $1",
@@ -149,7 +200,17 @@ authRouter.post("/google", authRateLimit, async (req, res, next) => {
 
     await issueSessionForUser(res, user);
     res.json({ user: userResponse(user) });
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.code === "23505") {
+      next(
+        new AppError(
+          409,
+          "An account with this email already exists. Please sign in with your email and password.",
+          "EMAIL_EXISTS",
+        ),
+      );
+      return;
+    }
     next(error);
   }
 });
@@ -162,9 +223,11 @@ authRouter.post("/logout", (_req, res) => {
 authRouter.post("/reset-password", authRateLimit, async (req, res, next) => {
   try {
     const { email } = resetRequestSchema.parse(sanitizeValue(req.body));
-    const user = await query("SELECT id FROM users WHERE email = $1", [
-      email.toLowerCase(),
-    ]);
+    const normalizedEmail = email.toLowerCase();
+    const user = await query<{ id: string; name: string }>(
+      "SELECT id, name FROM users WHERE email = $1",
+      [normalizedEmail],
+    );
 
     if (user.rowCount) {
       const token = randomBytes(32).toString("hex");
@@ -174,12 +237,9 @@ authRouter.post("/reset-password", authRateLimit, async (req, res, next) => {
         `UPDATE users
          SET reset_password_token_hash = $1, reset_password_expires_at = $2
          WHERE email = $3`,
-        [tokenHash, expiresAt, email.toLowerCase()],
+        [tokenHash, expiresAt, normalizedEmail],
       );
-      await sendPasswordResetEmail(
-        email,
-        `${config.appUrl}/reset-password?token=${token}`,
-      );
+      await sendPasswordResetEmail(normalizedEmail, token, user.rows[0].name);
     }
 
     res.json({
@@ -194,9 +254,11 @@ authRouter.post("/reset-password", authRateLimit, async (req, res, next) => {
 authRouter.post("/reset", authRateLimit, async (req, res, next) => {
   try {
     const { email } = resetRequestSchema.parse(sanitizeValue(req.body));
-    const user = await query("SELECT id FROM users WHERE email = $1", [
-      email.toLowerCase(),
-    ]);
+    const normalizedEmail = email.toLowerCase();
+    const user = await query<{ id: string; name: string }>(
+      "SELECT id, name FROM users WHERE email = $1",
+      [normalizedEmail],
+    );
 
     if (user.rowCount) {
       const token = randomBytes(32).toString("hex");
@@ -206,12 +268,9 @@ authRouter.post("/reset", authRateLimit, async (req, res, next) => {
         `UPDATE users
          SET reset_password_token_hash = $1, reset_password_expires_at = $2
          WHERE email = $3`,
-        [tokenHash, expiresAt, email.toLowerCase()],
+        [tokenHash, expiresAt, normalizedEmail],
       );
-      await sendPasswordResetEmail(
-        email,
-        `${config.appUrl}/reset-password?token=${token}`,
-      );
+      await sendPasswordResetEmail(normalizedEmail, token, user.rows[0].name);
     }
 
     res.json({
@@ -228,6 +287,17 @@ authRouter.post("/reset-password/confirm", async (req, res, next) => {
     const { token, password } = consumeResetSchema.parse(
       sanitizeValue(req.body),
     );
+
+    const passwordCheck = validatePassword(password);
+    if (!passwordCheck.valid) {
+      res.status(400).json({
+        error: "Password does not meet requirements.",
+        code: "WEAK_PASSWORD",
+        errors: passwordCheck.errors,
+      });
+      return;
+    }
+
     const tokenHash = createHash("sha256").update(token).digest("hex");
     const passwordHash = await bcrypt.hash(password, 12);
 
@@ -256,17 +326,24 @@ authRouter.post("/reset-password/confirm", async (req, res, next) => {
 authRouter.post("/signup", authRateLimit, async (req, res, next) => {
   try {
     const body = localSignupSchema.parse(sanitizeValue(req.body));
+
+    const passwordCheck = validatePassword(body.password);
+    if (!passwordCheck.valid) {
+      res.status(400).json({
+        error: "Password does not meet requirements.",
+        code: "WEAK_PASSWORD",
+        errors: passwordCheck.errors,
+      });
+      return;
+    }
+
     const passwordHash = await bcrypt.hash(body.password, 12);
-    const verificationToken = randomBytes(32).toString("hex");
-    const verificationHash = createHash("sha256")
-      .update(verificationToken)
-      .digest("hex");
     const user = await query<UserRow>(
       `INSERT INTO users (
          id, name, email, avatar_url, oauth_provider, password_hash,
-         email_verification_token_hash, email_verification_expires_at
+         email_verified_at
        )
-       VALUES ($1, $2, $3, $4, 'local', $5, $6, NOW() + INTERVAL '24 hours')
+       VALUES ($1, $2, $3, $4, 'local', $5, NOW())
        RETURNING id, name, email, avatar_url, created_at`,
       [
         makeId(),
@@ -274,18 +351,12 @@ authRouter.post("/signup", authRateLimit, async (req, res, next) => {
         body.email.toLowerCase(),
         `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(body.name)}`,
         passwordHash,
-        verificationHash,
       ],
     );
-    await sendVerificationEmail(
-      body.email.toLowerCase(),
-      `${config.appUrl}/verify-email?token=${verificationToken}`,
-    );
-    res.status(202).json({
+    await issueSessionForUser(res, user.rows[0]);
+    res.json({
       success: true,
-      requiresVerification: true,
       user: userResponse(user.rows[0]),
-      message: "Check your email to verify your account before signing in.",
     });
   } catch (error: any) {
     if (error?.code === "23505") {
@@ -305,30 +376,184 @@ authRouter.post("/signup", authRateLimit, async (req, res, next) => {
 authRouter.post("/login", authRateLimit, async (req, res, next) => {
   try {
     const body = localLoginSchema.parse(sanitizeValue(req.body));
+    const normalizedEmail = body.email.toLowerCase();
+    const clientIp = req.ip || req.socket.remoteAddress || "unknown";
+
     const result = await query<UserRow>(
-      "SELECT id, name, email, avatar_url, password_hash, email_verified_at, created_at FROM users WHERE email = $1",
-      [body.email.toLowerCase()],
+      `SELECT id, name, email, avatar_url, password_hash, email_verified_at, created_at,
+              failed_login_attempts, locked_until, permanently_locked
+       FROM users WHERE email = $1`,
+      [normalizedEmail],
     );
     const user = result.rows[0];
+
+    if (user) {
+      if (user.permanently_locked) {
+        logger.warn("Failed login attempt", {
+          email: normalizedEmail,
+          ip: clientIp,
+          timestamp: new Date().toISOString(),
+          reason: "account_locked",
+          lockType: "permanent",
+        });
+        throw new AppError(
+          403,
+          "Account permanently locked — contact support",
+          "ACCOUNT_PERMANENTLY_LOCKED",
+        );
+      }
+
+      if (user.locked_until) {
+        const lockedUntil = new Date(user.locked_until);
+        if (lockedUntil.getTime() > Date.now()) {
+          const minutes = lockoutMinutesRemaining(user.locked_until);
+          const retryAfterSeconds = lockoutSecondsRemaining(user.locked_until);
+          logger.warn("Failed login attempt", {
+            email: normalizedEmail,
+            ip: clientIp,
+            timestamp: new Date().toISOString(),
+            reason: "account_locked",
+            lockType: "temporary",
+          });
+          res.status(429).json({
+            error: `Account locked — try again in ${minutes} minutes`,
+            code: "ACCOUNT_TEMPORARILY_LOCKED",
+            retryAfterSeconds,
+          });
+          return;
+        }
+
+        // Lock expired — allow another attempt and reset counters.
+        await query(
+          `UPDATE users
+           SET failed_login_attempts = 0, locked_until = NULL
+           WHERE id = $1`,
+          [user.id],
+        );
+        user.failed_login_attempts = 0;
+        user.locked_until = null;
+      }
+    }
+
     const isValid =
       user?.password_hash &&
       (await bcrypt.compare(body.password, user.password_hash));
+
     if (!isValid) {
+      const reason = user ? "wrong_password" : "account_not_found";
+
+      logger.warn("Failed login attempt", {
+        email: normalizedEmail,
+        ip: clientIp,
+        timestamp: new Date().toISOString(),
+        reason,
+      });
+
+      if (user) {
+        const nextAttempts = (user.failed_login_attempts || 0) + 1;
+
+        if (nextAttempts >= 15) {
+          await query(
+            `UPDATE users
+             SET failed_login_attempts = $1, permanently_locked = true, locked_until = NULL
+             WHERE id = $2`,
+            [nextAttempts, user.id],
+          );
+          logger.warn(
+            "Account permanently locked after failed login attempts",
+            {
+              email: normalizedEmail,
+              ip: clientIp,
+              timestamp: new Date().toISOString(),
+              lockType: "permanent",
+              failedAttempts: nextAttempts,
+            },
+          );
+          throw new AppError(
+            403,
+            "Account permanently locked — contact support",
+            "ACCOUNT_PERMANENTLY_LOCKED",
+          );
+        }
+
+        if (nextAttempts % 5 === 0) {
+          await query(
+            `UPDATE users
+             SET failed_login_attempts = $1, locked_until = NOW() + INTERVAL '15 minutes'
+             WHERE id = $2`,
+            [nextAttempts, user.id],
+          );
+          logger.warn(
+            "Account temporarily locked after failed login attempts",
+            {
+              email: normalizedEmail,
+              ip: clientIp,
+              timestamp: new Date().toISOString(),
+              lockType: "temporary",
+              failedAttempts: nextAttempts,
+            },
+          );
+          res.status(429).json({
+            error: "Account locked — try again in 15 minutes",
+            code: "ACCOUNT_TEMPORARILY_LOCKED",
+            retryAfterSeconds: 15 * 60,
+          });
+          return;
+        }
+
+        await query(
+          "UPDATE users SET failed_login_attempts = $1 WHERE id = $2",
+          [nextAttempts, user.id],
+        );
+      }
+
       throw new AppError(
         401,
-        "Invalid email or password.",
+        "Invalid email or password",
         "INVALID_CREDENTIALS",
       );
     }
-    if (!(user as any).email_verified_at) {
-      throw new AppError(
-        403,
-        "Verify your email before signing in.",
-        "EMAIL_NOT_VERIFIED",
-      );
-    }
+
+    await query(
+      `UPDATE users
+       SET failed_login_attempts = 0, locked_until = NULL
+       WHERE id = $1`,
+      [user.id],
+    );
+
     await issueSessionForUser(res, user);
     res.json({ user: userResponse(user) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+authRouter.post("/unlock", requireAdmin, async (req, res, next) => {
+  try {
+    const { email } = unlockSchema.parse(sanitizeValue(req.body));
+    const normalizedEmail = email.toLowerCase();
+
+    const result = await query(
+      `UPDATE users
+       SET permanently_locked = false,
+           failed_login_attempts = 0,
+           locked_until = NULL
+       WHERE email = $1
+       RETURNING id`,
+      [normalizedEmail],
+    );
+
+    if (!result.rowCount) {
+      throw new AppError(404, "User not found.", "USER_NOT_FOUND");
+    }
+
+    logger.info("Account unlocked by admin", {
+      targetEmail: normalizedEmail,
+      adminUserId: req.user!.id,
+      timestamp: new Date().toISOString(),
+    });
+
+    res.json({ success: true, message: "Account unlocked successfully" });
   } catch (error) {
     next(error);
   }
@@ -357,8 +582,10 @@ authRouter.post("/verify-email", authRateLimit, async (req, res, next) => {
       );
     }
 
-    await issueSessionForUser(res, result.rows[0]);
-    res.json({ user: userResponse(result.rows[0]) });
+    const verifiedUser = result.rows[0];
+    await sendWelcomeEmail(verifiedUser.email, verifiedUser.name);
+    await issueSessionForUser(res, verifiedUser);
+    res.json({ user: userResponse(verifiedUser) });
   } catch (error) {
     next(error);
   }

@@ -18,6 +18,9 @@ export const config = {
   anthropicApiKey: process.env.ANTHROPIC_API_KEY || "",
   geminiApiKey: process.env.GEMINI_API_KEY || "",
   resendApiKey: process.env.RESEND_API_KEY || "",
+  adminEmails: parseOrigins(process.env.ADMIN_EMAILS).map((email) =>
+    email.toLowerCase(),
+  ),
   criticalAlertWebhookUrl: process.env.CRITICAL_ALERT_WEBHOOK_URL || "",
   allowedOrigins: parseOrigins(
     process.env.ALLOWED_ORIGINS || process.env.APP_URL,

@@ -9,7 +9,7 @@ import type { Metrics } from "../utils/taskFilters";
 import { apiFetch } from "../lib/api";
 import {
   Plus,
-  Calendar,
+  Calendar as CalendarIcon,
   ClipboardList,
   CheckCircle2,
   PieChart,
@@ -98,8 +98,9 @@ export default function DesktopSidebar({
     reader.readAsDataURL(file);
   };
   return (
-    <aside className="hidden md:flex w-[260px] flex-shrink-0 h-screen sticky top-0 flex-col justify-between p-5 z-20 sidebar-glass">
-      <div className="space-y-6">
+    <aside className="hidden md:flex w-[260px] flex-shrink-0 h-screen sticky top-0 flex-col overflow-hidden p-5 z-20 sidebar-glass">
+      <div className="flex h-full min-h-0 flex-col gap-6 overflow-hidden">
+        <div className="flex-shrink-0 space-y-6">
         <button
           type="button"
           onClick={scrollToTop}
@@ -109,7 +110,7 @@ export default function DesktopSidebar({
           <img
             src={logoImage}
             alt="NewDay logo"
-            className="w-8 h-8 rounded-xl object-cover shadow-lg shadow-[#5C27FE]/30 border border-white/20 cursor-pointer"
+            className="h-20 w-20 object-contain cursor-pointer"
           />
           <span className="sr-only">NewDay</span>
         </button>
@@ -121,8 +122,9 @@ export default function DesktopSidebar({
           <span>New Workspace Task</span>
           <Plus size={14} />
         </button>
+        </div>
 
-        <div className="space-y-4 pt-1">
+        <div className="flex-1 min-h-0 overflow-y-auto space-y-4 pt-1 pr-1">
           <div>
             <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 block mb-2 px-2">
               Views Categories
@@ -130,14 +132,17 @@ export default function DesktopSidebar({
             <nav className="space-y-1">
               <button
                 onClick={() => setActiveCategory("today")}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left text-xs font-semibold cursor-pointer transition-all duration-200 ${
+                className={`group w-full flex items-center justify-between px-3 py-2 rounded-xl text-left text-xs font-semibold cursor-pointer transition-all duration-200 ${
                   activeCategory === "today"
                     ? "bg-white/80 dark:bg-white/10 shadow-sm border border-white/40 dark:border-white/10 text-[#5C27FE] dark:text-[#a085ff]"
                     : "text-gray-600 dark:text-gray-400 hover:bg-gray-200/40 dark:hover:bg-white/5"
                 }`}
               >
                 <span className="flex items-center gap-2.5">
-                  <Calendar size={13} />
+                  <CalendarIcon
+                    size={13}
+                    className="group-hover:translate-x-1 transition-transform"
+                  />
                   Today's Focus
                 </span>
                 {metrics.overdue > 0 && (
@@ -148,32 +153,53 @@ export default function DesktopSidebar({
               </button>
 
               <button
+                onClick={() => setActiveCategory("calendar")}
+                className={`group w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-xs font-semibold cursor-pointer transition-all duration-200 ${
+                  activeCategory === "calendar"
+                    ? "bg-white/80 dark:bg-white/10 shadow-sm border border-white/40 dark:border-white/10 text-[#5C27FE] dark:text-[#a085ff]"
+                    : "text-gray-600 dark:text-gray-400 hover:bg-gray-200/40 dark:hover:bg-white/5"
+                }`}
+              >
+                <CalendarIcon
+                  size={13}
+                  className="group-hover:translate-x-1 transition-transform"
+                />
+                Calendar View
+              </button>
+
+              <button
                 onClick={() => setActiveCategory("my_tasks")}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-xs font-semibold cursor-pointer transition-all duration-200 ${
+                className={`group w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-xs font-semibold cursor-pointer transition-all duration-200 ${
                   activeCategory === "my_tasks"
                     ? "bg-white/80 dark:bg-white/10 shadow-sm border border-white/40 dark:border-white/10 text-[#5C27FE] dark:text-[#a085ff]"
                     : "text-gray-600 dark:text-gray-400 hover:bg-gray-200/40 dark:hover:bg-white/5"
                 }`}
               >
-                <ClipboardList size={13} />
+                <ClipboardList
+                  size={13}
+                  className="group-hover:translate-x-1 transition-transform"
+                />
                 My Work Desk
               </button>
 
               <button
                 onClick={() => setActiveCategory("completed")}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-xs font-semibold cursor-pointer transition-all duration-200 ${
+                className={`group w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-xs font-semibold cursor-pointer transition-all duration-200 ${
                   activeCategory === "completed"
                     ? "bg-white/80 dark:bg-white/10 shadow-sm border border-white/40 dark:border-white/10 text-[#00C48C] dark:text-emerald-400"
                     : "text-gray-600 dark:text-gray-400 hover:bg-gray-200/40 dark:hover:bg-white/5"
                 }`}
               >
-                <CheckCircle2 size={13} className="text-[#00C48C]" />
+                <CheckCircle2
+                  size={13}
+                  className="text-[#00C48C] group-hover:translate-x-1 transition-transform"
+                />
                 Completed Archive
               </button>
 
               <button
                 onClick={() => setActiveCategory("analytics")}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-xs font-semibold cursor-pointer transition-all duration-200 ${
+                className={`group w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-xs font-semibold cursor-pointer transition-all duration-200 ${
                   activeCategory === "analytics"
                     ? "bg-white/80 dark:bg-white/10 shadow-sm border border-white/40 dark:border-white/10 text-[#5C27FE] dark:text-[#a085ff]"
                     : "text-gray-600 dark:text-gray-400 hover:bg-gray-200/40 dark:hover:bg-white/5"
@@ -181,14 +207,14 @@ export default function DesktopSidebar({
               >
                 <PieChart
                   size={13}
-                  className="text-[#5C27FE] dark:text-[#a085ff]"
+                  className="text-[#5C27FE] dark:text-[#a085ff] group-hover:translate-x-1 transition-transform"
                 />
                 Team Analytics
               </button>
 
               <button
                 onClick={() => setActiveCategory("goals")}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-xs font-semibold cursor-pointer transition-all duration-200 ${
+                className={`group w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-xs font-semibold cursor-pointer transition-all duration-200 ${
                   activeCategory === "goals"
                     ? "bg-white/80 dark:bg-white/10 shadow-sm border border-white/40 dark:border-white/10 text-[#FF4D4D] dark:text-[#ff7373]"
                     : "text-gray-600 dark:text-gray-400 hover:bg-gray-200/40 dark:hover:bg-white/5"
@@ -196,14 +222,14 @@ export default function DesktopSidebar({
               >
                 <Target
                   size={13}
-                  className="text-[#FF4D4D] dark:text-[#ff7373]"
+                  className="text-[#FF4D4D] dark:text-[#ff7373] group-hover:translate-x-1 transition-transform"
                 />
                 Goals & Milestones
               </button>
 
               <button
                 onClick={() => setActiveCategory("chat")}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-xs font-semibold cursor-pointer transition-all duration-200 ${
+                className={`group w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-xs font-semibold cursor-pointer transition-all duration-200 ${
                   activeCategory === "chat"
                     ? "bg-white/80 dark:bg-white/10 shadow-sm border border-white/40 dark:border-white/10 text-[#0EA5E9] dark:text-[#38bcfc]"
                     : "text-gray-600 dark:text-gray-400 hover:bg-gray-200/40 dark:hover:bg-white/5"
@@ -211,14 +237,14 @@ export default function DesktopSidebar({
               >
                 <MessageSquare
                   size={13}
-                  className="text-[#0EA5E9] dark:text-[#38bcfc]"
+                  className="text-[#0EA5E9] dark:text-[#38bcfc] group-hover:translate-x-1 transition-transform"
                 />
                 Workspace Chat
               </button>
 
               <button
                 onClick={() => setActiveCategory("settings")}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-xs font-semibold cursor-pointer transition-all duration-200 ${
+                className={`group w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-xs font-semibold cursor-pointer transition-all duration-200 ${
                   activeCategory === "settings"
                     ? "bg-white/80 dark:bg-white/10 shadow-sm border border-white/40 dark:border-white/10 text-[#5C27FE] dark:text-[#a085ff]"
                     : "text-gray-600 dark:text-gray-400 hover:bg-gray-200/40 dark:hover:bg-white/5"
@@ -226,7 +252,7 @@ export default function DesktopSidebar({
               >
                 <Settings
                   size={13}
-                  className="text-[#5C27FE] dark:text-[#a085ff]"
+                  className="text-[#5C27FE] dark:text-[#a085ff] group-hover:translate-x-1 transition-transform"
                 />
                 Settings
               </button>
@@ -247,7 +273,7 @@ export default function DesktopSidebar({
               </button>
             </div>
 
-            <div className="space-y-1 max-h-48 overflow-y-auto">
+            <div className="space-y-1">
               {groups.map((g) => (
                 <button
                   key={g.id}
@@ -278,7 +304,7 @@ export default function DesktopSidebar({
           </div>
         </div>
 
-        <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-white/5">
+        <div className="flex-shrink-0 mt-auto space-y-4 pt-4 border-t border-gray-100 dark:border-white/5">
           <div className="flex flex-col gap-2 p-2.5 rounded-xl bg-gray-100/60 dark:bg-white/5 border border-transparent dark:border-white/5">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
@@ -312,7 +338,7 @@ export default function DesktopSidebar({
                 <img
                   src={currentUser.avatarUrl}
                   alt={currentUser.name}
-                  className="w-8 h-8 rounded-full border border-white/65 object-cover"
+                  className="w-10 h-10 sm:w-12 sm:h-12 rounded-full border border-white/65 object-cover"
                   referrerPolicy="no-referrer"
                 />
               ) : (

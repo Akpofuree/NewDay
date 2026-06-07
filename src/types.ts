@@ -132,6 +132,7 @@ export interface ChatMessageWithExtras extends ChatMessage {
   attachments?: MessageAttachment[];
   taskRefId?: string;
   updatedAt?: string;
+  isSystem?: boolean;
 }
 
 export interface ChatChannel {

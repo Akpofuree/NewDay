@@ -1,7 +1,7 @@
 import type { Dispatch, SetStateAction } from "react";
 import { Group } from "../types";
 import {
-  Calendar,
+  Calendar as CalendarIcon,
   ClipboardList,
   CheckCircle2,
   PieChart,
@@ -49,7 +49,7 @@ export default function MobileTopNav({
           <img
             src={logoImage}
             alt="NewDay logo"
-            className="h-7 w-auto rounded-lg object-contain shadow-md shadow-[#5C27FE]/20 cursor-pointer"
+            className="h-20 w-20 object-contain cursor-pointer"
           />
           <span className="sr-only">NewDay</span>
         </button>
@@ -95,79 +95,115 @@ export default function MobileTopNav({
       <div className="flex items-center gap-2 overflow-x-auto no-scrollbar px-4 pb-3 pt-1 border-t border-gray-100 dark:border-white/5">
         <button
           onClick={() => setActiveCategory("today")}
-          className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex items-center gap-1.5 transition-all ${
+          className={`group px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex items-center gap-1.5 transition-all ${
             activeCategory === "today"
               ? "bg-[#5C27FE] text-white shadow-md"
               : "bg-white/50 dark:bg-white/5 text-gray-600 dark:text-gray-400"
           }`}
         >
-          <Calendar size={12} />
+          <CalendarIcon
+            size={12}
+            className="group-hover:translate-x-1 transition-transform"
+          />
           <span>Today {metrics.overdue > 0 ? `(${metrics.overdue})` : ""}</span>
+        </button>
+
+        <button
+          onClick={() => setActiveCategory("calendar")}
+          className={`group px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex items-center gap-1.5 transition-all ${
+            activeCategory === "calendar"
+              ? "bg-[#5C27FE] text-white shadow-md"
+              : "bg-white/50 dark:bg-white/5 text-gray-600 dark:text-gray-400"
+          }`}
+        >
+          <CalendarIcon
+            size={12}
+            className="group-hover:translate-x-1 transition-transform"
+          />
+          <span>Calendar</span>
         </button>
         <button
           onClick={() => setActiveCategory("my_tasks")}
-          className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex items-center gap-1.5 transition-all ${
+          className={`group px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex items-center gap-1.5 transition-all ${
             activeCategory === "my_tasks"
               ? "bg-[#5C27FE] text-white shadow-md"
               : "bg-white/50 dark:bg-white/5 text-gray-600 dark:text-gray-400"
           }`}
         >
-          <ClipboardList size={12} />
+          <ClipboardList
+            size={12}
+            className="group-hover:translate-x-1 transition-transform"
+          />
           <span>My Desk</span>
         </button>
         <button
           onClick={() => setActiveCategory("completed")}
-          className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex items-center gap-1.5 transition-all ${
+          className={`group px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex items-center gap-1.5 transition-all ${
             activeCategory === "completed"
               ? "bg-[#00C48C] text-white shadow-md"
               : "bg-white/50 dark:bg-white/5 text-gray-600 dark:text-gray-400"
           }`}
         >
-          <CheckCircle2 size={12} />
+          <CheckCircle2
+            size={12}
+            className="group-hover:translate-x-1 transition-transform"
+          />
           <span>Archived</span>
         </button>
         <button
           onClick={() => setActiveCategory("analytics")}
-          className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex items-center gap-1.5 transition-all ${
+          className={`group px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex items-center gap-1.5 transition-all ${
             activeCategory === "analytics"
               ? "bg-[#5C27FE] text-white shadow-md"
               : "bg-white/50 dark:bg-white/5 text-gray-600 dark:text-gray-400"
           }`}
         >
-          <PieChart size={12} />
+          <PieChart
+            size={12}
+            className="group-hover:translate-x-1 transition-transform"
+          />
           <span>Analytics</span>
         </button>
         <button
           onClick={() => setActiveCategory("goals")}
-          className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex items-center gap-1.5 transition-all ${
+          className={`group px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex items-center gap-1.5 transition-all ${
             activeCategory === "goals"
               ? "bg-[#FF4D4D] text-white shadow-md"
               : "bg-white/50 dark:bg-white/5 text-gray-600 dark:text-gray-400"
           }`}
         >
-          <Target size={12} />
+          <Target
+            size={12}
+            className="group-hover:translate-x-1 transition-transform"
+          />
           <span>Goals</span>
         </button>
         <button
           onClick={() => setActiveCategory("chat")}
-          className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex items-center gap-1.5 transition-all ${
+          className={`group px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex items-center gap-1.5 transition-all ${
             activeCategory === "chat"
               ? "bg-[#0EA5E9] text-white shadow-md"
               : "bg-white/50 dark:bg-white/5 text-gray-600 dark:text-gray-400"
           }`}
         >
-          <MessageSquare size={12} />
+          <MessageSquare
+            size={12}
+            className="group-hover:translate-x-1 transition-transform"
+          />
           <span>Chat</span>
         </button>
         <button
           onClick={() => setActiveCategory("settings")}
-          className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex items-center gap-1.5 transition-all ${
+          className={`group px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex items-center gap-1.5 transition-all ${
             activeCategory === "settings"
               ? "bg-[#5C27FE] text-white shadow-md"
               : "bg-white/50 dark:bg-white/5 text-gray-600 dark:text-gray-400"
           }`}
         >
-          <Settings size={12} />
+          <Settings
+            size={12}
+            className="group-hover:translate-x-1 transition-transform"
+          />
           <span>Settings</span>
         </button>
 
@@ -210,7 +246,7 @@ export default function MobileTopNav({
           <img
             src={logoImage}
             alt="NewDay logo"
-            className="h-7 w-auto rounded-lg object-contain shadow-md shadow-[#5C27FE]/20 cursor-pointer"
+            className="h-20 w-20 object-contain cursor-pointer"
           />
           <span className="sr-only">NewDay</span>
         </button>

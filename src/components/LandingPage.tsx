@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Sparkles,
@@ -43,6 +43,9 @@ import ChromaGrid from "./ChromaGrid";
 import { User } from "../types";
 const logoImage = new URL("../images/logo.png", import.meta.url).href;
 import { apiFetch } from "../lib/api";
+import PasswordStrengthIndicator, {
+  isPasswordStrong,
+} from "./PasswordStrengthIndicator";
 
 interface LandingPageProps {
   onAuthSuccess: (user: User) => void;
@@ -61,9 +64,10 @@ export default function LandingPage({
 }: LandingPageProps) {
   // Auth Drawer States
   const [isAuthOpen, setIsAuthOpen] = useState(false);
-  const [authMode, setAuthMode] = useState<"login" | "signup" | "reset">(
-    "login",
-  );
+  const [authMode, setAuthMode] = useState<
+    "login" | "signup" | "reset" | "reset-confirm"
+  >("login");
+  const [resetConfirmToken, setResetConfirmToken] = useState("");
 
   // Auth Form State Inputs
   const [email, setEmail] = useState("");
@@ -75,6 +79,8 @@ export default function LandingPage({
   const [resetSuccess, setResetSuccess] = useState("");
   const [googleClientId, setGoogleClientId] = useState("");
   const [googleReady, setGoogleReady] = useState(false);
+  const [lockoutSeconds, setLockoutSeconds] = useState<number | null>(null);
+  const [isPermanentLock, setIsPermanentLock] = useState(false);
 
   // Interactive Live Mockup Panel States
   const [demoSelectedPriority, setDemoSelectedPriority] = useState<
@@ -97,6 +103,7 @@ export default function LandingPage({
   const [focusSelectedPeriod, setFocusSelectedPeriod] = useState<number>(25);
   const [focusStatusActive, setFocusStatusActive] = useState<boolean>(true);
   const [focusCounterSeconds, setFocusCounterSeconds] = useState<number>(1489); // 24:49 remaining
+  const focusIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [demoChatMessages, setDemoChatMessages] = useState([
     {
       id: 1,
@@ -156,6 +163,38 @@ export default function LandingPage({
   }, []);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("token");
+    const isResetPath = window.location.pathname.includes("reset-password");
+    const isVerifyPath = window.location.pathname.includes("verify-email");
+
+    if (token && isResetPath) {
+      setResetConfirmToken(token);
+      setAuthMode("reset-confirm");
+      setIsAuthOpen(true);
+      window.history.replaceState({}, "", "/");
+    } else if (token && isVerifyPath) {
+      setIsAuthOpen(true);
+      setLoading(true);
+      apiFetch("/api/auth/verify-email", {
+        method: "POST",
+        body: JSON.stringify({ token }),
+      })
+        .then(async (res) => {
+          const data = await res.json();
+          if (!res.ok) {
+            throw new Error(data.error || "Verification failed.");
+          }
+          onAuthSuccess(data.user || data);
+        })
+        .catch((err: Error) => setError(err.message))
+        .finally(() => setLoading(false));
+      window.history.replaceState({}, "", "/");
+    }
+  }, [onAuthSuccess]);
+
+  useEffect(() => {
     apiFetch("/api/auth/providers")
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
@@ -211,16 +250,45 @@ export default function LandingPage({
     document.head.appendChild(script);
   }, [googleClientId, onAuthSuccess]);
 
+  useEffect(() => {
+    if (lockoutSeconds === null || lockoutSeconds <= 0) return;
+    const timer = setInterval(() => {
+      setLockoutSeconds((prev) => (prev !== null && prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [lockoutSeconds]);
+
   // Isolate Focus timer simulation tick
   useEffect(() => {
-    if (!focusStatusActive) return;
-    const interval = setInterval(() => {
+    if (!focusStatusActive) {
+      if (focusIntervalRef.current) {
+        clearInterval(focusIntervalRef.current);
+        focusIntervalRef.current = null;
+      }
+      return;
+    }
+
+    focusIntervalRef.current = setInterval(() => {
       setFocusCounterSeconds((prev) =>
         prev > 0 ? prev - 1 : focusSelectedPeriod * 60,
       );
     }, 1000);
-    return () => clearInterval(interval);
+
+    return () => {
+      if (focusIntervalRef.current) {
+        clearInterval(focusIntervalRef.current);
+        focusIntervalRef.current = null;
+      }
+    };
   }, [focusStatusActive, focusSelectedPeriod]);
+
+  const toggleFocusStatus = () => {
+    if (focusStatusActive && focusIntervalRef.current) {
+      clearInterval(focusIntervalRef.current);
+      focusIntervalRef.current = null;
+    }
+    setFocusStatusActive((active) => !active);
+  };
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
@@ -232,14 +300,49 @@ export default function LandingPage({
     setTypedMessage("");
   };
 
+  const formatLockoutMessage = (seconds: number) => {
+    const minutes = Math.max(1, Math.ceil(seconds / 60));
+    return `Account locked — try again in ${minutes} minute${minutes === 1 ? "" : "s"}`;
+  };
+
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setResetSuccess("");
+    setIsPermanentLock(false);
+    setLockoutSeconds(null);
+
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      setError("No internet connection");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      if (authMode === "reset") {
+      if (authMode === "reset-confirm") {
+        if (!resetConfirmToken || !password.trim()) {
+          throw new Error("Please enter your new password.");
+        }
+        if (!isPasswordStrong(password)) {
+          throw new Error("Password does not meet all security requirements.");
+        }
+
+        const response = await apiFetch("/api/auth/reset-password/confirm", {
+          method: "POST",
+          body: JSON.stringify({ token: resetConfirmToken, password }),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(
+            data.errors?.join(" ") || data.error || "Failed to reset password.",
+          );
+        }
+        setResetSuccess("Password updated. You can now sign in.");
+        setAuthMode("login");
+        setPassword("");
+        setResetConfirmToken("");
+      } else if (authMode === "reset") {
         if (!email.trim()) {
           throw new Error("Please enter your email address.");
         }
@@ -262,15 +365,17 @@ export default function LandingPage({
         if (!response.ok) {
           throw new Error(data.error || "Failed to reset password.");
         }
-        setResetSuccess(data.message || "If that email exists, a reset link will be sent.");
+        setResetSuccess(
+          data.message || "If that email exists, a reset link will be sent.",
+        );
         setAuthMode("login");
         setPassword("");
       } else if (authMode === "signup") {
         if (!name.trim() || !email.trim() || !password.trim()) {
           throw new Error("Please fill out all signup fields.");
         }
-        if (password.length < 8) {
-          throw new Error("Password must be at least 8 characters long.");
+        if (!isPasswordStrong(password)) {
+          throw new Error("Password does not meet all security requirements.");
         }
 
         const response = await apiFetch("/api/auth/signup", {
@@ -290,11 +395,15 @@ export default function LandingPage({
         const data = await response.json();
         if (!response.ok) {
           throw new Error(
-            data.error || "Failed to establish workspace account.",
+            data.errors?.join(" ") ||
+              data.error ||
+              "Failed to establish workspace account.",
           );
         }
         if (data.requiresVerification) {
-          setResetSuccess(data.message || "Check your email to verify your account.");
+          setResetSuccess(
+            data.message || "Check your email to verify your account.",
+          );
           setAuthMode("login");
         } else {
           onAuthSuccess(data.user || data);
@@ -305,28 +414,56 @@ export default function LandingPage({
           throw new Error("Please enter your email and password.");
         }
 
-        const response = await apiFetch("/api/auth/login", {
-          method: "POST",
-          body: JSON.stringify({ email, password }),
-        });
-        {
-          const ct = response.headers.get("content-type") || "";
-          if (ct.includes("text/html")) {
-            const text = await response.text();
-            throw new Error(
-              "Server returned HTML instead of JSON. Is the backend running? " +
-                text.slice(0, 200),
-            );
-          }
+        let response: Response;
+        try {
+          response = await apiFetch(
+            "/api/auth/login",
+            {
+              method: "POST",
+              body: JSON.stringify({ email, password }),
+            },
+            { retryOn429: false },
+          );
+        } catch {
+          throw new Error("Server unavailable — please try again later");
         }
+
+        const ct = response.headers.get("content-type") || "";
+        if (ct.includes("text/html")) {
+          const text = await response.text();
+          throw new Error(
+            "Server returned HTML instead of JSON. Is the backend running? " +
+              text.slice(0, 200),
+          );
+        }
+
         const data = await response.json();
         if (!response.ok) {
-          throw new Error(data.error || "Invalid credentials verified.");
+          if (response.status === 429 && data.retryAfterSeconds) {
+            setLockoutSeconds(data.retryAfterSeconds);
+            setError(formatLockoutMessage(data.retryAfterSeconds));
+            return;
+          }
+          if (
+            response.status === 403 &&
+            data.code === "ACCOUNT_PERMANENTLY_LOCKED"
+          ) {
+            setIsPermanentLock(true);
+            setError(
+              data.error || "Account permanently locked — contact support",
+            );
+            return;
+          }
+          throw new Error(data.error || "Invalid email or password");
         }
         onAuthSuccess(data.user || data);
       }
     } catch (err: any) {
-      setError(err.message || "Connecting to database failed.");
+      if (err?.message?.includes("Failed to fetch")) {
+        setError("Server unavailable — please try again later");
+      } else {
+        setError(err.message || "Connecting to database failed.");
+      }
     } finally {
       setLoading(false);
     }
@@ -372,7 +509,7 @@ export default function LandingPage({
 
       {/* STICKY HEADER */}
       <header className="sticky top-0 z-40 w-full backdrop-blur-xl border-b border-gray-200/40 dark:border-white/5 bg-white/60 dark:bg-slate-950/60 transition-all duration-150">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
           {/* Logo element */}
           <button
             type="button"
@@ -383,7 +520,7 @@ export default function LandingPage({
             <img
               src={logoImage}
               alt="NewDay logo"
-              className="h-10 w-auto rounded-xl object-contain shadow-md shadow-[#5C27FE]/20 border border-white/20 cursor-pointer"
+              className="h-24 w-24 object-contain cursor-pointer"
             />
           </button>
 
@@ -1133,6 +1270,7 @@ export default function LandingPage({
         focusSelectedPeriod={focusSelectedPeriod}
         focusStatusActive={focusStatusActive}
         percentComplete={percentComplete}
+        onToggleFocusStatus={toggleFocusStatus}
       />
 
       {/* FREQUENTLY ASKED QUESTIONS SECTION */}
@@ -1788,9 +1926,11 @@ export default function LandingPage({
                 {/* Header Close array */}
                 <div className="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-white/5 mb-6">
                   <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-[#5C27FE] to-[#0EA5E9] flex items-center justify-center text-white font-bold text-[10px]">
-                      N
-                    </div>
+                    <img
+                      src={logoImage}
+                      alt="NewDay logo"
+                      className="h-16 w-16 object-contain"
+                    />
                     <span className="font-extrabold text-xs tracking-tight text-gray-900 dark:text-white">
                       Workspace Gate
                     </span>
@@ -1807,18 +1947,22 @@ export default function LandingPage({
                 {/* Subtext info tabs */}
                 <div className="mb-6">
                   <h2 className="font-extrabold text-xl text-gray-950 dark:text-white leading-none">
-                    {authMode === "reset"
-                      ? "Reset Workspace Access"
-                      : authMode === "signup"
-                        ? "Establish Workspace Account"
-                        : "Authenticate Into Desk"}
+                    {authMode === "reset-confirm"
+                      ? "Set New Password"
+                      : authMode === "reset"
+                        ? "Reset Workspace Access"
+                        : authMode === "signup"
+                          ? "Establish Workspace Account"
+                          : "Authenticate Into Desk"}
                   </h2>
                   <p className="text-xs text-gray-500 mt-1.5">
-                    {authMode === "reset"
-                      ? "Type your email and receive a secure reset link."
-                      : authMode === "signup"
-                        ? "Create a verified profile or continue with Google."
-                        : "Verify credentials to load your persistent project boards."}
+                    {authMode === "reset-confirm"
+                      ? "Choose a strong password for your workspace account."
+                      : authMode === "reset"
+                        ? "Type your email and receive a secure reset link."
+                        : authMode === "signup"
+                          ? "Create a verified profile or continue with Google."
+                          : "Verify credentials to load your persistent project boards."}
                   </p>
                 </div>
 
@@ -1827,7 +1971,21 @@ export default function LandingPage({
                   {error && (
                     <div className="p-3 text-xs rounded-xl bg-red-100 dark:bg-red-950/40 text-red-600 dark:text-red-400 border border-red-500/20 flex gap-2 items-start shrink-0">
                       <ShieldAlert size={14} className="shrink-0 mt-0.5" />
-                      <span>{error}</span>
+                      <div className="space-y-1">
+                        <span>
+                          {lockoutSeconds && lockoutSeconds > 0
+                            ? formatLockoutMessage(lockoutSeconds)
+                            : error}
+                        </span>
+                        {isPermanentLock && (
+                          <a
+                            href="mailto:support@newday.app"
+                            className="block font-bold text-[#5C27FE] dark:text-[#a085ff] hover:underline"
+                          >
+                            Contact Support
+                          </a>
+                        )}
+                      </div>
                     </div>
                   )}
 
@@ -1838,19 +1996,21 @@ export default function LandingPage({
                     </div>
                   )}
 
-                  {authMode !== "reset" && googleClientId && (
-                    <button
-                      type="button"
-                      onClick={startGoogleAuth}
-                      disabled={loading || !googleReady}
-                      className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-black/30 px-3 py-3 text-xs font-extrabold text-gray-800 dark:text-white disabled:opacity-50"
-                    >
-                      <span className="h-4 w-4 rounded-full bg-white text-center text-[11px] font-black text-[#4285F4]">
-                        G
-                      </span>
-                      Continue with Google
-                    </button>
-                  )}
+                  {authMode !== "reset" &&
+                    authMode !== "reset-confirm" &&
+                    googleClientId && (
+                      <button
+                        type="button"
+                        onClick={startGoogleAuth}
+                        disabled={loading || !googleReady}
+                        className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-black/30 px-3 py-3 text-xs font-extrabold text-gray-800 dark:text-white disabled:opacity-50"
+                      >
+                        <span className="h-4 w-4 rounded-full bg-white text-center text-[11px] font-black text-[#4285F4]">
+                          G
+                        </span>
+                        Continue with Google
+                      </button>
+                    )}
 
                   {authMode === "signup" && (
                     <div>
@@ -1876,81 +2036,97 @@ export default function LandingPage({
                     </div>
                   )}
 
-                  <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-1.5">
-                      Workspace Email Address
-                    </label>
-                    <div className="relative">
-                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
-                        <Mail size={14} />
-                      </span>
-                      <input
-                        type="email"
-                        required
-                        placeholder="alex@company.com"
-                        value={email}
-                        onChange={function (e) {
-                          setEmail(e.target.value);
-                        }}
-                        className="w-full text-xs font-semibold bg-gray-50 dark:bg-black/40 text-gray-900 dark:text-white pl-10 pr-3 py-3 rounded-xl border border-gray-200 dark:border-white/10 focus:outline-none focus:border-[#5C27FE] focus:ring-1 focus:ring-[#5C27FE]/30 transition-all font-sans"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
-                        {authMode === "reset"
-                          ? "Reset Link Delivery"
-                          : "Security Password"}
+                  {authMode !== "reset-confirm" && (
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-1.5">
+                        Workspace Email Address
                       </label>
-                      {authMode === "login" && (
+                      <div className="relative">
+                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
+                          <Mail size={14} />
+                        </span>
+                        <input
+                          type="email"
+                          required
+                          placeholder="alex@company.com"
+                          value={email}
+                          onChange={function (e) {
+                            setEmail(e.target.value);
+                          }}
+                          className="w-full text-xs font-semibold bg-gray-50 dark:bg-black/40 text-gray-900 dark:text-white pl-10 pr-3 py-3 rounded-xl border border-gray-200 dark:border-white/10 focus:outline-none focus:border-[#5C27FE] focus:ring-1 focus:ring-[#5C27FE]/30 transition-all font-sans"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {authMode !== "reset" && (
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
+                          {authMode === "reset-confirm"
+                            ? "New Security Password"
+                            : "Security Password"}
+                        </label>
+                        {authMode === "login" && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setError("");
+                              setResetSuccess("");
+                              setAuthMode("reset");
+                            }}
+                            className="text-[10px] font-bold text-[#5C27FE] dark:text-[#a085ff] hover:underline cursor-pointer"
+                          >
+                            Forgot Password?
+                          </button>
+                        )}
+                      </div>
+                      <div className="relative">
+                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
+                          <Lock size={14} />
+                        </span>
+                        <input
+                          type={showPassword ? "text" : "password"}
+                          required
+                          placeholder="••••••••"
+                          value={password}
+                          onChange={function (e) {
+                            setPassword(e.target.value);
+                          }}
+                          className="w-full text-xs font-semibold bg-gray-50 dark:bg-black/40 text-gray-900 dark:text-white pl-10 pr-10 py-3 rounded-xl border border-gray-200 dark:border-white/10 focus:outline-none focus:border-[#5C27FE] focus:ring-1 focus:ring-[#5C27FE]/30 transition-all font-sans"
+                        />
                         <button
                           type="button"
-                          onClick={() => {
-                            setError("");
-                            setResetSuccess("");
-                            setAuthMode("reset");
-                          }}
-                          className="text-[10px] font-bold text-[#5C27FE] dark:text-[#a085ff] hover:underline cursor-pointer"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-[#a085ff] transition-colors"
+                          title={
+                            showPassword ? "Hide password" : "Show password"
+                          }
                         >
-                          Forgot Password?
+                          {showPassword ? (
+                            <EyeOff size={14} />
+                          ) : (
+                            <Eye size={14} />
+                          )}
                         </button>
+                      </div>
+                      {(authMode === "signup" ||
+                        authMode === "reset-confirm") && (
+                        <div className="mt-2">
+                          <PasswordStrengthIndicator password={password} />
+                        </div>
                       )}
                     </div>
-                    <div className="relative">
-                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
-                        <Lock size={14} />
-                      </span>
-                      <input
-                        type={showPassword ? "text" : "password"}
-                        required={authMode !== "reset"}
-                        disabled={authMode === "reset"}
-                        placeholder="••••••••"
-                        value={password}
-                        onChange={function (e) {
-                          setPassword(e.target.value);
-                        }}
-                        className="w-full text-xs font-semibold bg-gray-50 dark:bg-black/40 text-gray-900 dark:text-white pl-10 pr-10 py-3 rounded-xl border border-gray-200 dark:border-white/10 focus:outline-none focus:border-[#5C27FE] focus:ring-1 focus:ring-[#5C27FE]/30 transition-all font-sans"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-[#a085ff] transition-colors"
-                        title={showPassword ? "Hide password" : "Show password"}
-                      >
-                        {showPassword ? (
-                          <EyeOff size={14} />
-                        ) : (
-                          <Eye size={14} />
-                        )}
-                      </button>
-                    </div>
-                  </div>
+                  )}
 
                   <button
                     type="submit"
-                    disabled={loading}
+                    disabled={
+                      loading ||
+                      ((authMode === "signup" ||
+                        authMode === "reset-confirm") &&
+                        !isPasswordStrong(password))
+                    }
                     className="w-full mt-2 inline-flex items-center justify-center gap-2 text-xs font-bold py-3.5 rounded-xl bg-[#5C27FE] hover:bg-[#4a1ee3] text-white disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-150 shadow-md shadow-[#5C27FE]/20 hover:shadow-lg hover:shadow-[#5C27FE]/30 cursor-pointer text-center select-none"
                   >
                     <span>
@@ -1958,9 +2134,11 @@ export default function LandingPage({
                         ? "Processing Workspace Server..."
                         : authMode === "reset"
                           ? "Send Reset Link"
-                          : authMode === "signup"
-                            ? "Create Account & Load App"
-                            : "Authenticate Into Workspace"}
+                          : authMode === "reset-confirm"
+                            ? "Update Password"
+                            : authMode === "signup"
+                              ? "Create Account & Load App"
+                              : "Authenticate Into Workspace"}
                     </span>
                     <Sparkles size={13} />
                   </button>
@@ -1970,7 +2148,7 @@ export default function LandingPage({
               {/* Toggles underneath form */}
               <div className="mt-8 pt-4 border-t border-gray-100 dark:border-white/5 flex items-center justify-between text-xs">
                 <span className="text-gray-500">
-                  {authMode === "reset"
+                  {authMode === "reset" || authMode === "reset-confirm"
                     ? "Remembered security keys?"
                     : authMode === "signup"
                       ? "Joined workspace already?"
@@ -1981,7 +2159,7 @@ export default function LandingPage({
                   onClick={() => {
                     setError("");
                     setResetSuccess("");
-                    if (authMode === "reset") {
+                    if (authMode === "reset" || authMode === "reset-confirm") {
                       setAuthMode("login");
                     } else {
                       setAuthMode(authMode === "signup" ? "login" : "signup");
@@ -1989,7 +2167,7 @@ export default function LandingPage({
                   }}
                   className="font-bold text-[#5C27FE] dark:text-[#a085ff] hover:underline cursor-pointer"
                 >
-                  {authMode === "reset"
+                  {authMode === "reset" || authMode === "reset-confirm"
                     ? "Sign in instead"
                     : authMode === "signup"
                       ? "Sign in instead"

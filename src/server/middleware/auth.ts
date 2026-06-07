@@ -75,6 +75,33 @@ export async function getAuthUserFromToken(token?: string): Promise<AuthUser | n
   };
 }
 
+export async function requireAdmin(req: Request, _res: Response, next: NextFunction) {
+  try {
+    const token = req.cookies?.[cookieName];
+    if (!token) {
+      throw new AppError(401, 'Authentication required.', 'AUTH_REQUIRED');
+    }
+
+    const user = await getAuthUserFromToken(token);
+    if (!user) {
+      throw new AppError(401, 'Invalid session.', 'INVALID_SESSION');
+    }
+
+    if (!config.adminEmails.includes(user.email.toLowerCase())) {
+      throw new AppError(403, 'Admin access required.', 'ADMIN_REQUIRED');
+    }
+
+    req.user = user;
+    next();
+  } catch (error) {
+    if (error instanceof AppError) {
+      next(error);
+      return;
+    }
+    next(new AppError(401, 'Invalid session.', 'INVALID_SESSION'));
+  }
+}
+
 export async function requireAuth(req: Request, _res: Response, next: NextFunction) {
   try {
     const token = req.cookies?.[cookieName];

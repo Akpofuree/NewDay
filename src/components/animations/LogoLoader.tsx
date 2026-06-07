@@ -22,7 +22,7 @@ export default function LogoLoader({ className = "" }: LogoLoaderProps) {
           ],
         }}
         transition={transition}
-        className="w-40 h-40 rounded-[40px] bg-gradient-to-br from-violet-700 to-purple-600 flex items-center justify-center relative"
+        className="w-44 h-44 rounded-[44px] bg-gradient-to-br from-violet-700 to-purple-600 flex items-center justify-center relative"
       >
         {/* Vertical Line */}
         <div className="absolute left-[42px] h-20 w-[3px] bg-violet-300 rounded-full" />

@@ -290,10 +290,10 @@ export async function migrate() {
 export const defaultGroups = [
   {
     id: "group_personal",
-    name: "Engineering",
+    name: "Personal Workspace",
     color: "#00C48C",
     description:
-      "Task planning, build coordination, and shared implementation notes.",
+      "Your default NewDay workspace.",
     memberIds: [],
     ownerId: null,
     visibility: "private",

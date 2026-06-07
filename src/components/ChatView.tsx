@@ -16,6 +16,7 @@ import {
   FolderPlus,
   Plus,
   CheckCircle2,
+  ChevronLeft,
   ChevronRight,
   X,
   Trash2,
@@ -87,6 +88,9 @@ export default function ChatView({
 
   const [editingMessageId, setEditingMessageId] = useState("");
   const [editingMessageContent, setEditingMessageContent] = useState("");
+
+  // Mobile view state
+  const [mobileView, setMobileView] = useState<"channels" | "chat">("channels");
 
   /*
   ========================================
@@ -166,6 +170,11 @@ export default function ChatView({
           : channel,
       ),
     );
+
+    // On mobile, switch to chat view when channel is selected
+    if (window.innerWidth < 768) {
+      setMobileView("chat");
+    }
 
     return () => {
       socket.emit("leave_channel", activeChannelId);
@@ -608,10 +617,19 @@ export default function ChatView({
   };
 
   return (
-    <div className="glass-card rounded-2xl overflow-hidden flex h-[560px] text-left animate-fadeIn">
-      {/* LEFT SIDEBAR */}
+    <div className="glass-card rounded-2xl overflow-hidden flex h-[560px] text-left animate-fadeIn relative">
+      {/* LEFT SIDEBAR - CHANNELS LIST */}
 
-      <div className="w-[230px] bg-white/20 dark:bg-black/15 border-r border-gray-150 dark:border-white/5 flex flex-col justify-between p-3.5 flex-shrink-0">
+      <div
+        className={`
+          absolute inset-y-0 left-0 z-10
+          bg-white/20 dark:bg-black/15 border-r border-gray-150 dark:border-white/5
+          flex flex-col justify-between p-3.5
+          transition-transform duration-300 ease-in-out
+          ${mobileView === "chat" ? "-translate-x-full" : "translate-x-0"}
+          md:relative md:translate-x-0 md:w-[280px] w-full
+        `}
+      >
         <div className="space-y-4 min-h-0 overflow-y-auto pr-1">
           <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 block px-1">
             Workspace Groups
@@ -730,25 +748,46 @@ export default function ChatView({
 
       {/* MAIN CHAT AREA */}
 
-      <div className="flex-1 flex flex-col justify-between bg-white dark:bg-[#121220]/45">
+      <div
+        className={`
+          flex-1 flex flex-col justify-between bg-white dark:bg-[#121220]/45
+          transition-transform duration-300 ease-in-out
+          ${mobileView === "channels" ? "translate-x-full" : "translate-x-0"}
+          md:translate-x-0
+          absolute inset-y-0 right-0 w-full md:relative
+        `}
+      >
         {/* HEADER */}
 
         <div className="p-3.5 border-b border-gray-150 dark:border-white/5 flex items-center justify-between bg-white/50 dark:bg-[#151525] backdrop-blur-xs">
-          <div>
-            <h5 className="font-sora font-extrabold text-xs text-gray-900 dark:text-white flex items-center gap-1">
-              <Hash size={12} className="text-[#5C27FE]" />
+          <div className="flex items-center gap-2">
+            {/* Mobile back button */}
+            <button
+              onClick={() => setMobileView("channels")}
+              className="md:hidden p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
+            >
+              <ChevronLeft
+                size={18}
+                className="text-gray-600 dark:text-gray-400"
+              />
+            </button>
 
-              <span>
-                {currentGroup?.name || "Workspace"} / #
-                {currentChannel?.name || "select-channel"}
-              </span>
-            </h5>
+            <div>
+              <h5 className="font-sora font-extrabold text-xs text-gray-900 dark:text-white flex items-center gap-1">
+                <Hash size={12} className="text-[#5C27FE]" />
 
-            {currentChannel?.description && (
-              <p className="text-[10px] text-gray-400 tracking-tight truncate max-w-sm mt-0.5">
-                {currentChannel.description}
-              </p>
-            )}
+                <span>
+                  {currentGroup?.name || "Workspace"} / #
+                  {currentChannel?.name || "select-channel"}
+                </span>
+              </h5>
+
+              {currentChannel?.description && (
+                <p className="text-[10px] text-gray-400 tracking-tight truncate max-w-sm mt-0.5">
+                  {currentChannel.description}
+                </p>
+              )}
+            </div>
           </div>
 
           <div className="text-[10px] text-gray-400 font-mono font-bold flex items-center gap-1">
@@ -801,6 +840,17 @@ export default function ChatView({
               const linkedTask = tasks.find((t) => t.id === msg.taskRefId);
               const senderName = sender?.name || msg.userName || "Teammate";
 
+              if (msg.isSystem) {
+                return (
+                  <div
+                    key={msg.id}
+                    className="mx-auto max-w-[88%] rounded-full border border-gray-200/70 dark:border-white/10 bg-gray-50/80 dark:bg-white/[0.04] px-3 py-1.5 text-center text-[11px] italic text-gray-500 dark:text-gray-400"
+                  >
+                    {msg.content}
+                  </div>
+                );
+              }
+
               return (
                 <div
                   key={msg.id}
@@ -809,7 +859,7 @@ export default function ChatView({
                   <img
                     src={sender?.avatarUrl || "https://via.placeholder.com/100"}
                     alt={senderName}
-                    className="w-8 h-8 rounded-full border border-white/50 object-cover"
+                    className="w-8 h-8 sm:w-9 sm:h-9 rounded-full border border-white/50 object-cover"
                     referrerPolicy="no-referrer"
                   />
 

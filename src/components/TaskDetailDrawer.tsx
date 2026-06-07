@@ -655,18 +655,20 @@ export default function TaskDetailDrawer({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end font-sans">
+    <div className="fixed inset-0 z-50 flex md:justify-end justify-center items-end md:items-stretch font-sans">
       {/* Translucent backdrop frosted glass overlay */}
       <div
         className="absolute inset-0 bg-black/40 dark:bg-black/70 backdrop-blur-sm transition-opacity duration-300 pointer-events-auto"
         onClick={onClose}
       />
 
-      {/* Slide pane container */}
+      {/* Slide pane container - drawer on desktop, bottom sheet on mobile */}
       <div
-        className="relative w-full max-w-xl h-full bg-[#FAFBFD] dark:bg-[#0E0E18] shadow-2xl flex flex-col z-10 border-l border-white/20 dark:border-white/5"
+        className="relative w-full md:max-w-xl md:h-full h-[85vh] bg-[#FAFBFD] dark:bg-[#0E0E18] shadow-2xl flex flex-col z-10 border-l border-white/20 dark:border-white/5 md:rounded-none rounded-t-2xl"
         style={{
-          animation: "slideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards",
+          animation: isOpen
+            ? "slideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards"
+            : "slideOut 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards",
         }}
       >
         {/* Style tag placeholder for dynamic keyframe slider animation */}
@@ -674,12 +676,31 @@ export default function TaskDetailDrawer({
           dangerouslySetInnerHTML={{
             __html: `
           @keyframes slideIn {
-            from { transform: translateX(100%); opacity: 0.9; }
-            to { transform: translateX(0); opacity: 1; }
+            from { transform: translateY(100%); opacity: 0.9; }
+            to { transform: translateY(0); opacity: 1; }
+          }
+          @keyframes slideOut {
+            from { transform: translateY(0); opacity: 1; }
+            to { transform: translateY(100%); opacity: 0.9; }
+          }
+          @media (min-width: 768px) {
+            @keyframes slideIn {
+              from { transform: translateX(100%); opacity: 0.9; }
+              to { transform: translateX(0); opacity: 1; }
+            }
+            @keyframes slideOut {
+              from { transform: translateX(0); opacity: 1; }
+              to { transform: translateX(100%); opacity: 0.9; }
+            }
           }
         `,
           }}
         />
+
+        {/* Mobile drag handle */}
+        <div className="md:hidden w-full flex justify-center pt-3 pb-2">
+          <div className="w-12 h-1.5 bg-gray-300 dark:bg-gray-600 rounded-full" />
+        </div>
 
         {/* Header toolbar */}
         <div className="p-4 border-b border-gray-200/60 dark:border-white/5 flex items-center justify-between bg-white dark:bg-[#151525]/90 backdrop-blur-md">
@@ -1307,7 +1328,7 @@ export default function TaskDetailDrawer({
                               "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces"
                             }
                             alt={commenter?.name || "User"}
-                            className="w-7 h-7 rounded-full border border-white/50 object-cover"
+                            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full border border-white/50 object-cover"
                             referrerPolicy="no-referrer"
                           />
                           <div className="flex-1 p-2.5 rounded-xl bg-white dark:bg-[#151525] border border-gray-100 dark:border-white/5 shadow-xs text-xs">

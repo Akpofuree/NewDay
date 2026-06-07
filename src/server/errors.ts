@@ -27,7 +27,7 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
   const statusCode = err instanceof AppError ? err.statusCode : 500;
   const code = err instanceof AppError ? err.code : 'INTERNAL_ERROR';
   const publicMessage =
-    err instanceof AppError && statusCode < 500 ? err.message : 'Something went wrong. Please try again.';
+    err instanceof AppError && statusCode < 500 ? err.message : 'Something went wrong — please try again';
 
   logger.error('Request failed', {
     code,

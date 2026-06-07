@@ -513,7 +513,7 @@ export default function TaskCard({
                 src={assignee.avatarUrl}
                 alt={assignee.name}
                 title={assignee.name}
-                className="w-6 h-6 rounded-full border border-white dark:border-[#202035] object-cover shadow-sm"
+                className="w-6 h-6 sm:w-7 sm:h-7 rounded-full border border-white dark:border-[#202035] object-cover shadow-sm"
                 referrerPolicy="no-referrer"
               />
             ) : (

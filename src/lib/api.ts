@@ -7,7 +7,12 @@ export function apiPath(path: string) {
   return path.startsWith("/") ? path : `/${path}`;
 }
 
-export function apiFetch(path: string, init: RequestInit = {}) {
+export function apiFetch(
+  path: string,
+  init: RequestInit = {},
+  options?: { retryOn429?: boolean },
+) {
+  const retryOn429 = options?.retryOn429 ?? true;
   if (!API_URL && typeof window === "undefined") {
     throw new Error(
       "VITE_API_URL is not set in a non-browser environment. Please set VITE_API_URL or run the app in the browser with a proper backend proxy.",
@@ -31,7 +36,7 @@ export function apiFetch(path: string, init: RequestInit = {}) {
           },
         });
 
-        if (res.status !== 429) {
+        if (!retryOn429 || res.status !== 429) {
           if (attempt > 0 && typeof window !== "undefined") {
             window.dispatchEvent(
               new CustomEvent("newday:retry", {

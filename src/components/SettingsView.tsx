@@ -15,6 +15,7 @@ import {
   LogOut,
   Moon,
   Plus,
+  RefreshCw,
   Shield,
   Sun,
   UserRound,
@@ -70,6 +71,8 @@ export default function SettingsView({
   const [members, setMembers] = useState<GroupMember[]>([]);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteResult, setInviteResult] = useState("");
+  const [inviteLink, setInviteLink] = useState("");
+  const [inviteLinkExpiresAt, setInviteLinkExpiresAt] = useState("");
   const [joinToken, setJoinToken] = useState("");
   const [status, setStatus] = useState("");
 
@@ -98,6 +101,26 @@ export default function SettingsView({
       .then((res) => (res.ok ? res.json() : []))
       .then(setMembers)
       .catch(() => setMembers([]));
+  }, [canManageGroup, selectedGroup?.id]);
+
+  useEffect(() => {
+    if (!selectedGroup?.id || !canManageGroup) {
+      setInviteLink("");
+      setInviteLinkExpiresAt("");
+      return;
+    }
+
+    apiFetch(`/api/groups/${selectedGroup.id}/invite-link`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!data) return;
+        setInviteLink(data.inviteUrl || "");
+        setInviteLinkExpiresAt(data.expiresAt || "");
+      })
+      .catch(() => {
+        setInviteLink("");
+        setInviteLinkExpiresAt("");
+      });
   }, [canManageGroup, selectedGroup?.id]);
 
   const saveProfile = async () => {
@@ -185,7 +208,32 @@ export default function SettingsView({
     const data = await res.json();
     setInviteResult(data.inviteUrl);
     setInviteEmail("");
-    setStatus("Invite link created.");
+    setStatus(inviteEmail ? "Invitation sent." : "Invite link created.");
+  };
+
+  const copyInviteLink = async () => {
+    if (!inviteLink) return;
+    await navigator.clipboard?.writeText(inviteLink);
+    setStatus("Invite link copied.");
+  };
+
+  const regenerateInviteLink = async () => {
+    if (!selectedGroup) return;
+    setStatus("Regenerating invite link...");
+    const res = await apiFetch(
+      `/api/groups/${selectedGroup.id}/invite-link/regenerate`,
+      { method: "POST" },
+    );
+    if (!res.ok) {
+      const errorBody = await res.json().catch(() => null);
+      setStatus(errorBody?.error || "Invite link could not be regenerated.");
+      return;
+    }
+    const data = await res.json();
+    setInviteLink(data.inviteUrl || "");
+    setInviteLinkExpiresAt(data.expiresAt || "");
+    setInviteResult("");
+    setStatus("Invite link regenerated.");
   };
 
   const joinByInvite = async () => {
@@ -223,6 +271,7 @@ export default function SettingsView({
     role: "admin" | "member",
   ) => {
     if (!selectedGroup) return;
+    setStatus("Updating member role...");
     const res = await apiFetch(
       `/api/groups/${selectedGroup.id}/members/${memberId}`,
       {
@@ -236,11 +285,16 @@ export default function SettingsView({
           member.id === memberId ? { ...member, role } : member,
         ),
       );
+      setStatus("Member role updated.");
+    } else {
+      const errorBody = await res.json().catch(() => null);
+      setStatus(errorBody?.error || "Member role could not be updated.");
     }
   };
 
   const removeMember = async (memberId: string) => {
     if (!selectedGroup) return;
+    setStatus("Removing member...");
     const res = await apiFetch(
       `/api/groups/${selectedGroup.id}/members/${memberId}`,
       {
@@ -249,6 +303,10 @@ export default function SettingsView({
     );
     if (res.ok) {
       setMembers((prev) => prev.filter((member) => member.id !== memberId));
+      setStatus("Member removed.");
+    } else {
+      const errorBody = await res.json().catch(() => null);
+      setStatus(errorBody?.error || "Member could not be removed.");
     }
   };
 
@@ -524,6 +582,45 @@ export default function SettingsView({
                       {inviteResult}
                     </button>
                   )}
+                  <div className="space-y-2 rounded-lg border border-gray-200/70 dark:border-white/10 bg-white/70 dark:bg-black/15 p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <div className="text-xs font-extrabold text-gray-900 dark:text-white">
+                          Invite via link
+                        </div>
+                        {inviteLinkExpiresAt && (
+                          <div className="text-[10px] font-semibold text-gray-400">
+                            Expires{" "}
+                            {new Date(inviteLinkExpiresAt).toLocaleDateString()}
+                          </div>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={regenerateInviteLink}
+                        className="inline-flex items-center gap-1 rounded-lg border border-gray-200 dark:border-white/10 px-2.5 py-1.5 text-[10px] font-bold"
+                      >
+                        <RefreshCw size={11} />
+                        Regenerate
+                      </button>
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        value={inviteLink}
+                        readOnly
+                        className="min-w-0 flex-1 rounded-lg border border-gray-200 dark:border-white/10 bg-white/80 dark:bg-black/20 px-3 py-2 text-[10px] font-semibold"
+                      />
+                      <button
+                        type="button"
+                        onClick={copyInviteLink}
+                        disabled={!inviteLink}
+                        className="inline-flex items-center gap-1 rounded-lg bg-[#5C27FE] px-3 py-2 text-[10px] font-bold text-white disabled:opacity-40"
+                      >
+                        <Copy size={11} />
+                        Copy
+                      </button>
+                    </div>
+                  </div>
                   <div className="space-y-2 max-h-56 overflow-y-auto">
                     {members.map((member) => (
                       <div

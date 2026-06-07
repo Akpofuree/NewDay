@@ -4,6 +4,7 @@ import { defaultChannels, defaultGroups, makeId, query } from "../db";
 import { AppError } from "../errors";
 import { requireAuth } from "../middleware/auth";
 import { sanitizeValue } from "../sanitize";
+import { sendWorkspaceInviteEmail } from "../services/emailService";
 import { mapTask } from "./tasks";
 
 export const workspaceRouter = Router();
@@ -122,6 +123,7 @@ function mapChatMessageRow(row: any) {
     content: row.content,
     attachments: row.attachments || payload.attachments || [],
     taskRefId: payload.taskRefId || undefined,
+    isSystem: Boolean(payload.isSystem),
     createdAt: row.created_at?.toISOString?.() || row.created_at,
     updatedAt: row.updated_at?.toISOString?.() || row.updated_at,
   };
@@ -158,6 +160,18 @@ async function ensureDefaultWorkspace(userId: string) {
      ON CONFLICT (channel_id, user_id) DO NOTHING`,
     [channel.id, userId],
   );
+  await query(
+    `INSERT INTO channel_messages (id, channel_id, sender_id, content, payload)
+     VALUES ($1, $2, $3, $4, $5)
+     ON CONFLICT (id) DO NOTHING`,
+    [
+      `msg_welcome_${channel.id}`,
+      channel.id,
+      userId,
+      "Welcome to General! This is the default channel for your workspace.",
+      { isSystem: true },
+    ],
+  );
 }
 
 async function getGroupRole(groupId: string, userId: string) {
@@ -170,6 +184,15 @@ async function getGroupRole(groupId: string, userId: string) {
 
 function canAdmin(role: string | null) {
   return role === "owner" || role === "admin";
+}
+
+function getAppOrigin(req: any) {
+  const origin =
+    process.env.APP_URL ||
+    req.headers.origin ||
+    `${req.protocol}://${req.get("host")}` ||
+    "http://localhost:3000";
+  return origin.replace(/\/$/, "");
 }
 
 async function requireGroupAdmin(groupId: string, userId: string) {
@@ -436,6 +459,31 @@ workspaceRouter.post("/groups", async (req, res, next) => {
         req.user!.id,
       ],
     );
+    await query(
+      `UPDATE channels
+       SET name = 'general',
+           description = 'General discussion for everyone'
+       WHERE id = $1`,
+      [defaultChannelId],
+    );
+    await query(
+      `INSERT INTO channel_members (channel_id, user_id)
+       VALUES ($1, $2)
+       ON CONFLICT (channel_id, user_id) DO NOTHING`,
+      [defaultChannelId, req.user!.id],
+    );
+    await query(
+      `INSERT INTO channel_messages (id, channel_id, sender_id, content, payload)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (id) DO NOTHING`,
+      [
+        `msg_welcome_${defaultChannelId}`,
+        defaultChannelId,
+        req.user!.id,
+        "Welcome to General! This is the default channel for your workspace.",
+        { isSystem: true },
+      ],
+    );
 
     res.status(201).json(finalPayload);
   } catch (error) {
@@ -522,34 +570,127 @@ workspaceRouter.post("/groups/:groupId/invitations", async (req, res, next) => {
     const tokenHash = createHash("sha256").update(token).digest("hex");
     const role = payload.role === "admin" ? "admin" : "member";
     const id = `invite_${makeId()}`;
+    const email = payload.email ? String(payload.email).toLowerCase() : null;
     await query(
       `INSERT INTO group_invitations (id, group_id, email, token_hash, role, invited_by, expires_at)
        VALUES ($1, $2, $3, $4, $5, $6, NOW() + INTERVAL '7 days')`,
       [
         id,
         req.params.groupId,
-        payload.email ? String(payload.email).toLowerCase() : null,
+        email,
         tokenHash,
         role,
         req.user!.id,
       ],
     );
-    const origin =
-      req.headers.origin ||
-      `${req.protocol}://${req.get("host")}` ||
-      process.env.APP_URL ||
-      "http://localhost:3000";
+    const inviteUrl = `${getAppOrigin(req)}/join?token=${token}`;
+    if (email) {
+      const group = await query("SELECT name FROM groups WHERE id = $1", [
+        req.params.groupId,
+      ]);
+      await sendWorkspaceInviteEmail(
+        email,
+        req.user!.name,
+        group.rows[0]?.name || "NewDay workspace",
+        inviteUrl,
+      );
+    }
     res.status(201).json({
       id,
       token,
-      inviteUrl: `${origin.replace(/\/$/, "")}/invite/${token}`,
+      inviteUrl,
       role,
-      email: payload.email || null,
+      email,
     });
   } catch (error) {
     next(error);
   }
 });
+
+workspaceRouter.get("/groups/:groupId/invite-link", async (req, res, next) => {
+  try {
+    await requireGroupAdmin(req.params.groupId, req.user!.id);
+    const existing = await query(
+      `SELECT id, token_plain, expires_at
+       FROM group_invitations
+       WHERE group_id = $1
+         AND email IS NULL
+         AND accepted_at IS NULL
+         AND revoked_at IS NULL
+         AND expires_at > NOW()
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [req.params.groupId],
+    );
+
+    if (existing.rowCount && existing.rows[0].token_plain) {
+      const token = existing.rows[0].token_plain;
+      res.json({
+        token,
+        inviteUrl: `${getAppOrigin(req)}/join?token=${token}`,
+        expiresAt: existing.rows[0].expires_at,
+      });
+      return;
+    }
+
+    const token = randomBytes(32).toString("hex");
+    const tokenHash = createHash("sha256").update(token).digest("hex");
+    await query(
+      `INSERT INTO group_invitations (id, group_id, email, token_hash, token_plain, role, invited_by, expires_at)
+       VALUES ($1, $2, NULL, $3, $4, 'member', $5, NOW() + INTERVAL '7 days')`,
+      [`invite_${makeId()}`, req.params.groupId, tokenHash, token, req.user!.id],
+    );
+    res.json({
+      token,
+      inviteUrl: `${getAppOrigin(req)}/join?token=${token}`,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+workspaceRouter.post(
+  "/groups/:groupId/invite-link/regenerate",
+  async (req, res, next) => {
+    try {
+      await requireGroupAdmin(req.params.groupId, req.user!.id);
+      await query(
+        `UPDATE group_invitations
+         SET revoked_at = NOW()
+         WHERE group_id = $1
+           AND email IS NULL
+           AND accepted_at IS NULL
+           AND revoked_at IS NULL`,
+        [req.params.groupId],
+      );
+
+      const token = randomBytes(32).toString("hex");
+      const tokenHash = createHash("sha256").update(token).digest("hex");
+      await query(
+        `INSERT INTO group_invitations (id, group_id, email, token_hash, token_plain, role, invited_by, expires_at)
+         VALUES ($1, $2, NULL, $3, $4, 'member', $5, NOW() + INTERVAL '7 days')`,
+        [
+          `invite_${makeId()}`,
+          req.params.groupId,
+          tokenHash,
+          token,
+          req.user!.id,
+        ],
+      );
+
+      res.json({
+        token,
+        inviteUrl: `${getAppOrigin(req)}/join?token=${token}`,
+        expiresAt: new Date(
+          Date.now() + 7 * 24 * 60 * 60 * 1000,
+        ).toISOString(),
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
 
 workspaceRouter.post("/groups/join", async (req, res, next) => {
   try {
@@ -562,6 +703,7 @@ workspaceRouter.post("/groups/join", async (req, res, next) => {
        SET accepted_by = $1, accepted_at = NOW()
        WHERE token_hash = $2
          AND accepted_at IS NULL
+         AND revoked_at IS NULL
          AND expires_at > NOW()
          AND (email IS NULL OR email = $3)
        RETURNING group_id, role`,

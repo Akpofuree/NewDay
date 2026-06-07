@@ -5,6 +5,7 @@ import NewTaskModal from "./components/NewTaskModal";
 import AnalyticsView from "./components/AnalyticsView";
 import GoalsView from "./components/GoalsView";
 import ChatView from "./components/ChatView";
+import CalendarView from "./components/CalendarView";
 import LogoLoader from "./components/animations/LogoLoader";
 import MobileTopNav from "./components/MobileTopNav";
 import MobileBottomDock from "./components/MobileBottomDock";
@@ -23,6 +24,7 @@ import {
   getListSections,
   getMetrics,
 } from "./utils/taskFilters";
+import { getGreeting, getUserLanguage } from "./utils/greeting";
 import {
   List,
   LayoutGrid,
@@ -195,6 +197,24 @@ export default function App() {
   const sections = getListSections(categorizedTasks);
   const metrics = getMetrics(tasks);
   const currentCategoryObj = groups.find((g) => g.id === activeCategory);
+  const [greetingLanguage] = useState(() => getUserLanguage());
+  const [greetingNow, setGreetingNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setGreetingNow(new Date());
+    }, 60000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const greeting =
+    currentUser &&
+    getGreeting({
+      name: currentUser.name,
+      language: greetingLanguage,
+      timezone: currentUser.timezone,
+      now: greetingNow,
+    });
 
   const scrollToTop = () => {
     if (typeof window !== "undefined") {
@@ -232,6 +252,7 @@ export default function App() {
 
   const getCategoryTitle = () => {
     if (activeCategory === "today") return "Today's Focus";
+    if (activeCategory === "calendar") return "Calendar View";
     if (activeCategory === "my_tasks") return "My Work Desk";
     if (activeCategory === "completed") return "Completed Workspace Archive";
     if (activeCategory === "analytics") return "Team Analytics Insights";
@@ -318,11 +339,8 @@ export default function App() {
             )}
             {activeCategory === "today" && (
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Good morning,{" "}
-                <span className="font-bold text-gray-900 dark:text-white">
-                  {currentUser.name}
-                </span>
-                . Let's make today remarkably cohesive.
+                {greeting || `Good morning, ${currentUser.name}`}. Let's make
+                today remarkably cohesive.
               </p>
             )}
           </div>
@@ -351,6 +369,18 @@ export default function App() {
             goals={goals}
             users={users}
             groups={groups}
+          />
+        ) : activeCategory === "calendar" ? (
+          <CalendarView
+            tasks={tasks}
+            darkMode={darkMode}
+            onTaskClick={(task) => {
+              setSelectedTask(task);
+              setIsDetailOpen(true);
+            }}
+            onQuickCreate={(dueDate) => {
+              setIsNewTaskOpen(true);
+            }}
           />
         ) : activeCategory === "goals" ? (
           <GoalsView

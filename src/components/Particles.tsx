@@ -1,5 +1,4 @@
 import React, { useEffect, useRef } from "react";
-import useDarkMode from "../hooks/useDarkMode";
 import { Renderer, Camera, Geometry, Program, Mesh } from "ogl";
 
 interface ParticlesProps {
@@ -118,11 +117,24 @@ const Particles: React.FC<ParticlesProps> = ({
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const mouseRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
-  const isDark = useDarkMode();
+  const motionRef = useRef({
+    speed,
+    moveParticlesOnHover,
+    particleHoverFactor,
+    disableRotation,
+  });
+
+  motionRef.current = {
+    speed,
+    moveParticlesOnHover,
+    particleHoverFactor,
+    disableRotation,
+  };
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
+    const shouldMoveOnHover = motionRef.current.moveParticlesOnHover;
 
     const renderer = new Renderer({
       dpr: pixelRatio,
@@ -131,7 +143,14 @@ const Particles: React.FC<ParticlesProps> = ({
     });
     const gl = renderer.gl;
     container.appendChild(gl.canvas);
+    gl.canvas.style.opacity = "0";
+    gl.canvas.style.transition = "opacity 900ms ease-in-out";
+    gl.canvas.style.width = "100%";
+    gl.canvas.style.height = "100%";
     gl.clearColor(0, 0, 0, 0);
+    requestAnimationFrame(() => {
+      gl.canvas.style.opacity = "1";
+    });
 
     const camera = new Camera(gl, { fov: 15 });
     camera.position.set(0, 0, cameraDistance);
@@ -153,7 +172,7 @@ const Particles: React.FC<ParticlesProps> = ({
       mouseRef.current = { x, y };
     };
 
-    if (moveParticlesOnHover) {
+    if (shouldMoveOnHover) {
       container.addEventListener("mousemove", handleMouseMove);
     }
 
@@ -164,7 +183,7 @@ const Particles: React.FC<ParticlesProps> = ({
     const palette =
       particleColors && particleColors.length > 0
         ? particleColors
-        : isDark
+        : document.documentElement.classList.contains("dark")
           ? defaultColors
           : ["#5C27FE", "#8B5CF6", "#7C3AED"];
 
@@ -219,22 +238,23 @@ const Particles: React.FC<ParticlesProps> = ({
       animationFrameId = requestAnimationFrame(update);
       const delta = t - lastTime;
       lastTime = t;
-      elapsed += delta * speed;
+      const motion = motionRef.current;
+      elapsed += delta * motion.speed;
 
       program.uniforms.uTime.value = elapsed * 0.001;
 
-      if (moveParticlesOnHover) {
-        particles.position.x = -mouseRef.current.x * particleHoverFactor;
-        particles.position.y = -mouseRef.current.y * particleHoverFactor;
+      if (motion.moveParticlesOnHover) {
+        particles.position.x = -mouseRef.current.x * motion.particleHoverFactor;
+        particles.position.y = -mouseRef.current.y * motion.particleHoverFactor;
       } else {
         particles.position.x = 0;
         particles.position.y = 0;
       }
 
-      if (!disableRotation) {
+      if (!motion.disableRotation) {
         particles.rotation.x = Math.sin(elapsed * 0.0002) * 0.1;
         particles.rotation.y = Math.cos(elapsed * 0.0005) * 0.15;
-        particles.rotation.z += 0.01 * speed;
+        particles.rotation.z += 0.01 * motion.speed;
       }
 
       renderer.render({ scene: particles, camera });
@@ -244,7 +264,7 @@ const Particles: React.FC<ParticlesProps> = ({
 
     return () => {
       window.removeEventListener("resize", resize);
-      if (moveParticlesOnHover) {
+      if (shouldMoveOnHover) {
         container.removeEventListener("mousemove", handleMouseMove);
       }
       cancelAnimationFrame(animationFrameId);
@@ -252,19 +272,7 @@ const Particles: React.FC<ParticlesProps> = ({
         container.removeChild(gl.canvas);
       }
     };
-  }, [
-    particleCount,
-    particleSpread,
-    speed,
-    moveParticlesOnHover,
-    particleHoverFactor,
-    alphaParticles,
-    particleBaseSize,
-    sizeRandomness,
-    cameraDistance,
-    disableRotation,
-    pixelRatio,
-  ]);
+  }, []);
 
   return (
     <div

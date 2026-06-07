@@ -4,6 +4,7 @@ import {
   BarChart3,
   Flame,
   PauseCircle,
+  PlayCircle,
   ShieldCheck,
 } from "lucide-react";
 
@@ -12,6 +13,7 @@ interface FocusAnalyticsSectionProps {
   focusSelectedPeriod: number;
   focusStatusActive: boolean;
   percentComplete: number;
+  onToggleFocusStatus: () => void;
 }
 
 const formatTime = (seconds: number) => {
@@ -25,6 +27,7 @@ const FocusAnalyticsSection: FC<FocusAnalyticsSectionProps> = ({
   focusSelectedPeriod,
   focusStatusActive,
   percentComplete,
+  onToggleFocusStatus,
 }) => {
   return (
     <section
@@ -120,10 +123,15 @@ const FocusAnalyticsSection: FC<FocusAnalyticsSectionProps> = ({
 
             <button
               type="button"
+              onClick={onToggleFocusStatus}
               className="inline-flex items-center gap-2 rounded-full bg-[#FFB020] px-6 py-3 text-sm font-bold text-slate-950 shadow-lg shadow-[#FFB020]/20 hover:bg-[#f2a000] transition-all"
             >
-              <PauseCircle size={18} />
-              Pause Active Focus
+              {focusStatusActive ? (
+                <PauseCircle size={18} />
+              ) : (
+                <PlayCircle size={18} />
+              )}
+              {focusStatusActive ? "Pause Active Focus" : "Resume Focus"}
             </button>
 
             <p className="text-[11px] text-gray-500 dark:text-gray-400">

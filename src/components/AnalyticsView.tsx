@@ -416,7 +416,7 @@ export default function AnalyticsView({
                     <img
                       src={u.avatarUrl}
                       alt={u.name}
-                      className="w-10 h-10 rounded-full object-cover border border-white"
+                      className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover border border-white"
                       referrerPolicy="no-referrer"
                     />
 

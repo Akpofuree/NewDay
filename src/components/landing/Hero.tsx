@@ -4,6 +4,8 @@ import { Sparkles, Play, Check, ArrowRight } from "lucide-react";
 import Particles from "../Particles";
 import { User } from "../../types";
 
+const logoImage = new URL("../../images/logo.png", import.meta.url).href;
+
 interface HeroProps {
   isDarkHook: boolean;
   currentUser?: User | null;
@@ -23,16 +25,16 @@ export default function Hero({
     <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 pb-16 text-center relative overflow-hidden z-10">
       <div className="absolute inset-0 -z-10 pointer-events-none">
         <Particles
-          particleCount={isDarkHook ? 360 : 760}
-          particleSpread={isDarkHook ? 12 : 34}
+          particleCount={isDarkHook ? 360 : 980}
+          particleSpread={isDarkHook ? 12 : 28}
           speed={0.1}
           particleColors={
-            isDarkHook ? ["#ffffff"] : ["#5C27FE", "#8B5CF6", "#7C3AED"]
+            isDarkHook ? ["#ffffff"] : ["#312E81", "#0F766E", "#B91C1C"]
           }
           moveParticlesOnHover={true}
           particleHoverFactor={1}
           alphaParticles={false}
-          particleBaseSize={isDarkHook ? 160 : 180}
+          particleBaseSize={isDarkHook ? 160 : 260}
           sizeRandomness={1.4}
           cameraDistance={20}
           disableRotation={false}
@@ -42,7 +44,7 @@ export default function Hero({
           <div className="absolute inset-0 bg-slate-950/74" />
         ) : (
           <>
-            <div className="absolute inset-0 bg-gradient-to-br from-[#eff6ff]/75 via-white to-[#f8fafc]/90" />
+            <div className="absolute inset-0 bg-gradient-to-br from-[#eff6ff]/35 via-white/55 to-[#f8fafc]/60" />
             <div className="absolute left-1/2 top-[-5%] h-72 w-72 -translate-x-1/2 rounded-full bg-[#c7d2fe]/25 blur-3xl" />
             <div className="absolute right-10 top-20 h-56 w-56 rounded-full bg-[#dbeafe]/30 blur-3xl" />
           </>
@@ -53,6 +55,19 @@ export default function Hero({
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
+        className="mb-6 flex justify-center"
+      >
+        <img
+          src={logoImage}
+          alt="NewDay logo"
+          className="h-24 w-24 sm:h-28 sm:w-28 md:h-32 md:w-32 object-contain"
+        />
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.05 }}
         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#5C27FE]/15 dark:bg-[#5C27FE]/20 text-[#5C27FE] dark:text-[#c4b5fd] text-[11px] font-bold tracking-tight mb-6 border border-[#5C27FE]/20"
       >
         <Sparkles

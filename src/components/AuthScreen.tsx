@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { User } from "../types";
 import {
   KeyRound,
@@ -16,6 +16,9 @@ import {
 import { GoogleLogin } from "@react-oauth/google";
 import { jwtDecode } from "jwt-decode";
 import { apiFetch } from "../lib/api";
+import PasswordStrengthIndicator, {
+  isPasswordStrong,
+} from "./PasswordStrengthIndicator";
 import LogoLoader from "./animations/LogoLoader";
 const logoImage = new URL("../images/logo.png", import.meta.url).href;
 
@@ -33,6 +36,21 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [resetSuccess, setResetSuccess] = useState("");
+  const [lockoutSeconds, setLockoutSeconds] = useState<number | null>(null);
+  const [isPermanentLock, setIsPermanentLock] = useState(false);
+
+  useEffect(() => {
+    if (lockoutSeconds === null || lockoutSeconds <= 0) return;
+    const timer = setInterval(() => {
+      setLockoutSeconds((prev) => (prev !== null && prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [lockoutSeconds]);
+
+  const formatLockoutMessage = (seconds: number) => {
+    const minutes = Math.max(1, Math.ceil(seconds / 60));
+    return `Account locked — try again in ${minutes} minute${minutes === 1 ? "" : "s"}`;
+  };
 
   const handleGoogleLogin = async (credentialResponse: any) => {
     setLoading(true);
@@ -54,7 +72,7 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
         throw new Error(data.error || "Google login failed.");
       }
 
-      onAuthSuccess(data);
+      onAuthSuccess(data.user || data);
     } catch (err: any) {
       setError(err.message || "Google authentication failed.");
     } finally {
@@ -66,36 +84,38 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
     e.preventDefault();
     setError("");
     setResetSuccess("");
+    setIsPermanentLock(false);
+    setLockoutSeconds(null);
+
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      setError("No internet connection");
+      return;
+    }
 
     if (isReset) {
-      if (!email || !password) {
-        setError("Please enter your email and a new password.");
-        return;
-      }
-      if (password.length < 8) {
-        setError("Password must be at least 8 characters long.");
+      if (!email) {
+        setError("Please enter your email address.");
         return;
       }
 
       setLoading(true);
       try {
-        const response = await apiFetch("/api/auth/reset", {
+        const response = await apiFetch("/api/auth/reset-password", {
           method: "POST",
-          body: JSON.stringify({ email, newPassword: password }),
+          body: JSON.stringify({ email }),
         });
 
         const data = await response.json();
         if (!response.ok) {
-          throw new Error(data.error || "Failed to reset password.");
+          throw new Error(data.error || "Failed to request password reset.");
         }
 
         setResetSuccess(
-          "Workspace password updated! You can now authenticate with your new credentials.",
+          data.message || "If that email exists, a reset link will be sent.",
         );
         setIsReset(false);
-        setPassword("");
       } catch (err: any) {
-        setError(err.message || "Mismatched user or wrong details key.");
+        setError(err.message || "Failed to request password reset.");
       } finally {
         setLoading(false);
       }
@@ -104,8 +124,8 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
         setError("Please fill in all fields.");
         return;
       }
-      if (password.length < 8) {
-        setError("Password must be at least 8 characters long.");
+      if (!isPasswordStrong(password)) {
+        setError("Password does not meet all security requirements.");
         return;
       }
 
@@ -118,7 +138,9 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
 
         const data = await response.json();
         if (!response.ok) {
-          throw new Error(data.error || "Failed to sign up.");
+          throw new Error(
+            data.errors?.join(" ") || data.error || "Failed to sign up.",
+          );
         }
 
         onAuthSuccess(data);
@@ -135,19 +157,47 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
 
       setLoading(true);
       try {
-        const response = await apiFetch("/api/auth/login", {
-          method: "POST",
-          body: JSON.stringify({ email, password }),
-        });
+        let response: Response;
+        try {
+          response = await apiFetch(
+            "/api/auth/login",
+            {
+              method: "POST",
+              body: JSON.stringify({ email, password }),
+            },
+            { retryOn429: false },
+          );
+        } catch {
+          throw new Error("Server unavailable — please try again later");
+        }
 
         const data = await response.json();
         if (!response.ok) {
-          throw new Error(data.error || "Invalid credentials.");
+          if (response.status === 429 && data.retryAfterSeconds) {
+            setLockoutSeconds(data.retryAfterSeconds);
+            setError(formatLockoutMessage(data.retryAfterSeconds));
+            return;
+          }
+          if (
+            response.status === 403 &&
+            data.code === "ACCOUNT_PERMANENTLY_LOCKED"
+          ) {
+            setIsPermanentLock(true);
+            setError(
+              data.error || "Account permanently locked — contact support",
+            );
+            return;
+          }
+          throw new Error(data.error || "Invalid email or password");
         }
 
         onAuthSuccess(data);
       } catch (err: any) {
-        setError(err.message || "Mismatched user or wrong code details.");
+        if (err?.message?.includes("Failed to fetch")) {
+          setError("Server unavailable — please try again later");
+        } else {
+          setError(err.message || "Invalid email or password");
+        }
       } finally {
         setLoading(false);
       }
@@ -173,7 +223,7 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
               <img
                 src={logoImage}
                 alt="NewDay logo"
-                className="h-9 w-auto rounded-xl object-contain shadow-lg shadow-[#5C27FE]/30 border border-white/20"
+                className="h-28 w-28 object-contain"
               />
               <span className="sr-only">NewDay</span>
             </div>
@@ -185,7 +235,7 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
               </span>
             </h1>
             <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed mb-6">
-              Welcome to the NewDay production environment. Experience real-time
+              Welcome to the production environment. Experience real-time
               multi-user synchronization, secure workspace credentials database
               persistence, and AI-powered curriculum maps.
             </p>
@@ -274,7 +324,21 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
               <div className="p-3 rounded-lg text-xs bg-red-100 dark:bg-red-950/45 text-[#FF4D4D] border border-[#FF4D4D]/25">
-                {error}
+                <div className="space-y-1">
+                  <span>
+                    {lockoutSeconds && lockoutSeconds > 0
+                      ? formatLockoutMessage(lockoutSeconds)
+                      : error}
+                  </span>
+                  {isPermanentLock && (
+                    <a
+                      href="mailto:support@newday.app"
+                      className="block font-bold text-[#5C27FE] dark:text-[#a085ff] hover:underline"
+                    >
+                      Contact Support
+                    </a>
+                  )}
+                </div>
               </div>
             )}
 
@@ -325,51 +389,58 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
               </div>
             </div>
 
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                  {isReset ? "Next Security Password" : "Security Password"}
-                </label>
-                {!isSignUp && (
+            {!isReset && (
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                    Security Password
+                  </label>
+                  {!isSignUp && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setError("");
+                        setResetSuccess("");
+                        setIsReset(true);
+                      }}
+                      className="text-[10px] font-bold text-[#5C27FE] dark:text-[#a085ff] hover:underline cursor-pointer"
+                    >
+                      Forgot Password?
+                    </button>
+                  )}
+                </div>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
+                    <Lock size={14} />
+                  </span>
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    required
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full text-xs font-medium bg-white/40 dark:bg-black/20 text-gray-900 dark:text-white pl-10 pr-10 py-2.5 rounded-xl border border-gray-200/60 dark:border-white/10 focus:outline-none focus:border-[#5C27FE] dark:focus:border-indigo-400 transition-colors"
+                  />
                   <button
                     type="button"
-                    onClick={() => {
-                      setError("");
-                      setResetSuccess("");
-                      setIsReset(!isReset);
-                    }}
-                    className="text-[10px] font-bold text-[#5C27FE] dark:text-[#a085ff] hover:underline cursor-pointer"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-[#a085ff] transition-colors"
+                    title={showPassword ? "Hide password" : "Show password"}
                   >
-                    {isReset ? "Back to sign in" : "Forgot Password?"}
+                    {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
                   </button>
+                </div>
+                {isSignUp && (
+                  <div className="mt-2">
+                    <PasswordStrengthIndicator password={password} />
+                  </div>
                 )}
               </div>
-              <div className="relative">
-                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
-                  <Lock size={14} />
-                </span>
-                <input
-                  type={showPassword ? "text" : "password"}
-                  required
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full text-xs font-medium bg-white/40 dark:bg-black/20 text-gray-900 dark:text-white pl-10 pr-10 py-2.5 rounded-xl border border-gray-200/60 dark:border-white/10 focus:outline-none focus:border-[#5C27FE] dark:focus:border-indigo-400 transition-colors"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-[#a085ff] transition-colors"
-                  title={showPassword ? "Hide password" : "Show password"}
-                >
-                  {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
-                </button>
-              </div>
-            </div>
+            )}
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || (isSignUp && !isPasswordStrong(password))}
               className="w-full mt-2 inline-flex items-center justify-center gap-2 text-xs font-semibold py-3 rounded-xl bg-[#5C27FE] hover:bg-[#4a1ee3] text-white disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-150 shadow-md shadow-[#5C27FE]/20 hover:shadow-lg hover:shadow-[#5C27FE]/30 cursor-pointer"
             >
               <span>
