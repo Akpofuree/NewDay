@@ -874,7 +874,7 @@ export default function TaskDetailDrawer({
                   />
                   <button
                     type="submit"
-                    className="px-3 py-1.5 max-h-8.5 rounded-lg text-xs font-bold text-white bg-[#5C27FE] hover:bg-[#4a1ee3] transition-all cursor-pointer shadow-sm flex items-center justify-center whitespace-nowrap"
+                    className="btn-primary-shimmer ripple-effect px-3 py-1.5 max-h-8.5 rounded-lg text-xs font-bold text-white bg-[#5C27FE] hover:bg-[#4a1ee3] transition-all cursor-pointer shadow-sm flex items-center justify-center whitespace-nowrap"
                   >
                     + Log Time
                   </button>
@@ -1045,7 +1045,7 @@ export default function TaskDetailDrawer({
                   </button>
                   <button
                     onClick={handleSaveDescription}
-                    className="px-3 py-1 rounded text-[10px] text-white bg-[#5C27FE] font-bold hover:bg-[#4a1ee3]"
+                    className="btn-primary-shimmer ripple-effect px-3 py-1 rounded text-[10px] text-white bg-[#5C27FE] font-bold hover:bg-[#4a1ee3]"
                   >
                     Save Notes
                   </button>
@@ -1366,7 +1366,7 @@ export default function TaskDetailDrawer({
                   />
                   <button
                     type="submit"
-                    className="px-3 py-2 rounded-xl bg-[#5C27FE] text-white flex items-center justify-center hover:bg-[#4a1ee3] active:scale-95 transition-all shadow-md shadow-[#5C27FE]/20 cursor-pointer"
+                    className="btn-primary-shimmer ripple-effect px-3 py-2 rounded-xl bg-[#5C27FE] text-white flex items-center justify-center hover:bg-[#4a1ee3] active:scale-95 transition-all shadow-md shadow-[#5C27FE]/20 cursor-pointer"
                   >
                     <Send size={13} />
                   </button>
@@ -1438,7 +1438,7 @@ export default function TaskDetailDrawer({
                     <button
                       onClick={handleGenerateAI_Roadmap}
                       disabled={isGeneratingRoadmap}
-                      className="px-4 py-2 bg-gradient-to-r from-[#D97706] to-[#5C27FE] text-white hover:opacity-90 font-bold text-xs rounded-xl shadow-md cursor-pointer disabled:opacity-50 inline-flex items-center gap-1.5 transition-all self-start"
+                      className="btn-primary-shimmer ripple-effect px-4 py-2 bg-gradient-to-r from-[#D97706] to-[#5C27FE] text-white hover:opacity-90 font-bold text-xs rounded-xl shadow-md cursor-pointer disabled:opacity-50 inline-flex items-center gap-1.5 transition-all self-start"
                     >
                       {isGeneratingRoadmap ? (
                         <>

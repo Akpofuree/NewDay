@@ -7,6 +7,7 @@ import {
   PlayCircle,
   ShieldCheck,
 } from "lucide-react";
+import PulsatingButton from "../../registry/magicui/pulsating-button";
 
 interface FocusAnalyticsSectionProps {
   focusCounterSeconds: number;
@@ -121,10 +122,12 @@ const FocusAnalyticsSection: FC<FocusAnalyticsSectionProps> = ({
               </div>
             </div>
 
-            <button
+            <PulsatingButton
               type="button"
               onClick={onToggleFocusStatus}
-              className="inline-flex items-center gap-2 rounded-full bg-[#FFB020] px-6 py-3 text-sm font-bold text-slate-950 shadow-lg shadow-[#FFB020]/20 hover:bg-[#f2a000] transition-all"
+              className="inline-flex items-center gap-2"
+              buttonClassName="rounded-full bg-[#FFB020] px-6 py-3 text-sm font-bold text-slate-950 shadow-lg shadow-[#FFB020]/20 hover:bg-[#f2a000] transition-all"
+              pulseColor="rgba(255, 176, 32, 0.65)"
             >
               {focusStatusActive ? (
                 <PauseCircle size={18} />
@@ -132,7 +135,7 @@ const FocusAnalyticsSection: FC<FocusAnalyticsSectionProps> = ({
                 <PlayCircle size={18} />
               )}
               {focusStatusActive ? "Pause Active Focus" : "Resume Focus"}
-            </button>
+            </PulsatingButton>
 
             <p className="text-[11px] text-gray-500 dark:text-gray-400">
               Complete focus grants +50 XP multiplier points. Keep the timer

@@ -385,7 +385,7 @@ export default function NewTaskModal({
             </button>
             <button
               type="submit"
-              className="px-4 py-2.5 text-xs font-bold text-white bg-[#5C27FE] hover:bg-[#4a1ee3] rounded-xl flex items-center gap-1 shadow-md shadow-[#5C27FE]/20 cursor-pointer"
+              className="btn-primary-shimmer ripple-effect px-4 py-2.5 text-xs font-bold text-white bg-[#5C27FE] hover:bg-[#4a1ee3] rounded-xl flex items-center gap-1 shadow-md shadow-[#5C27FE]/20 cursor-pointer"
             >
               <span>Build Active Task</span>
               <Sparkles size={12} />

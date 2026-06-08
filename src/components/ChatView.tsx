@@ -530,12 +530,17 @@ export default function ChatView({
 
   const deleteMessage = async (messageId: string) => {
     try {
+      console.log("Deleting message:", messageId);
       const response = await apiFetch(`/api/chat/messages/${messageId}`, {
         method: "DELETE",
       });
 
+      console.log("Delete response status:", response.status);
+
       if (!response.ok) {
-        console.error("Failed to delete message");
+        const errorText = await response.text();
+        console.error("Failed to delete message:", errorText);
+        alert(`Failed to delete message: ${errorText}`);
         return;
       }
 
@@ -544,18 +549,24 @@ export default function ChatView({
       );
     } catch (err) {
       console.error("Error deleting message:", err);
+      alert(`Error deleting message: ${err}`);
     }
   };
 
   const editMessage = async (messageId: string, content: string) => {
     try {
+      console.log("Editing message:", messageId, content);
       const response = await apiFetch(`/api/chat/messages/${messageId}`, {
         method: "PATCH",
         body: JSON.stringify({ content }),
       });
 
+      console.log("Edit response status:", response.status);
+
       if (!response.ok) {
-        console.error("Failed to edit message");
+        const errorText = await response.text();
+        console.error("Failed to edit message:", errorText);
+        alert(`Failed to edit message: ${errorText}`);
         return;
       }
 
@@ -572,6 +583,7 @@ export default function ChatView({
       );
     } catch (err) {
       console.error("Error editing message:", err);
+      alert(`Error editing message: ${err}`);
     }
   };
 
@@ -617,20 +629,20 @@ export default function ChatView({
   };
 
   return (
-    <div className="glass-card rounded-2xl overflow-hidden flex h-[560px] text-left animate-fadeIn relative">
+    <div className="glass-card rounded-2xl overflow-hidden flex h-[560px] text-left animate-fadeIn relative w-full sm:w-[95vw] md:w-[800px] lg:w-[900px]">
       {/* LEFT SIDEBAR - CHANNELS LIST */}
 
       <div
         className={`
           absolute inset-y-0 left-0 z-10
           bg-white/20 dark:bg-black/15 border-r border-gray-150 dark:border-white/5
-          flex flex-col justify-between p-3.5
+          flex flex-col overflow-hidden p-3.5
           transition-transform duration-300 ease-in-out
           ${mobileView === "chat" ? "-translate-x-full" : "translate-x-0"}
           md:relative md:translate-x-0 md:w-[280px] w-full
         `}
       >
-        <div className="space-y-4 min-h-0 overflow-y-auto pr-1">
+        <div className="flex-1 min-h-0 space-y-4 overflow-y-auto pr-1">
           <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 block px-1">
             Workspace Groups
           </span>
@@ -733,7 +745,7 @@ export default function ChatView({
 
         {/* BOT STATUS */}
 
-        <div className="p-2 rounded-xl bg-[#5C27FE]/5 border border-[#5C27FE]/15 text-[10px] space-y-1 leading-relaxed">
+        <div className="mt-3 flex-shrink-0 p-2 rounded-xl bg-[#5C27FE]/5 border border-[#5C27FE]/15 text-[10px] space-y-1 leading-relaxed">
           <div className="flex items-center gap-1.5 font-bold text-[#5C27FE]">
             <Bot size={11} className="animate-bounce" />
 

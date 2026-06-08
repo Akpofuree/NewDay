@@ -38,6 +38,8 @@ import BorderGlow from "./BorderGlow";
 import Particles from "./Particles";
 import Hero from "./landing/Hero";
 import FocusAnalyticsSection from "./landing/FocusAnalyticsSection";
+import TestimonialsSection from "./landing/TestimonialsSection";
+import { AnimatedList } from "../registry/magicui/animated-list";
 import useDarkMode from "../hooks/useDarkMode";
 import ChromaGrid from "./ChromaGrid";
 import { User } from "../types";
@@ -613,6 +615,33 @@ export default function LandingPage({
                   <span>Get Started</span>
                   <ArrowRight size={13} />
                 </button>
+
+                {/* Terms and Privacy Links */}
+                <div className="hidden sm:flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      if (typeof window !== "undefined") {
+                        window.history.pushState({}, "", "/terms");
+                        window.location.reload();
+                      }
+                    }}
+                    className="text-xs font-semibold text-gray-600 dark:text-gray-400 hover:text-[#5C27FE] dark:hover:text-[#a085ff] transition-all hover:scale-105 cursor-pointer"
+                  >
+                    Terms
+                  </button>
+                  <span className="text-gray-300 dark:text-gray-600">•</span>
+                  <button
+                    onClick={() => {
+                      if (typeof window !== "undefined") {
+                        window.history.pushState({}, "", "/privacy");
+                        window.location.reload();
+                      }
+                    }}
+                    className="text-xs font-semibold text-gray-600 dark:text-gray-400 hover:text-[#5C27FE] dark:hover:text-[#a085ff] transition-all hover:scale-105 cursor-pointer"
+                  >
+                    Privacy
+                  </button>
+                </div>
               </>
             )}
           </div>
@@ -887,7 +916,7 @@ export default function LandingPage({
                     </p>
 
                     {/* interactive checkboxes */}
-                    <div className="space-y-2">
+                    <AnimatedList className="space-y-2" delay={1500}>
                       {demoCompletedSteps.map((completed, index) => {
                         const labels = [
                           "Construct responsive glass structures",
@@ -925,7 +954,7 @@ export default function LandingPage({
                           </div>
                         );
                       })}
-                    </div>
+                    </AnimatedList>
 
                     {/* Progress bar metrics indicator */}
                     <div className="mt-4 pt-4 border-t border-gray-100 dark:border-white/5 flex items-center justify-between">
@@ -1041,21 +1070,7 @@ export default function LandingPage({
         <div className="grid grid-cols-1 md:grid-cols-12 gap-5 md:gap-6 lg:gap-8 max-w-7xl mx-auto">
           {/* Bento Card: Real-time Multi-user Persistence (7 cols) */}
           <div className="md:col-span-7 p-5 md:p-6 lg:p-10 rounded-3xl border border-gray-250/50 dark:border-white/10 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl flex flex-col justify-between relative overflow-hidden group hover:border-[#5C27FE]/30 transition-all duration-300">
-            {darkMode && (
-              <div className="absolute inset-0 rounded-3xl overflow-hidden opacity-80 pointer-events-none">
-                <Particles
-                  particleColors={["#5C27FE", "#0EA5E9", "#ffffff"]}
-                  particleCount={70}
-                  particleSpread={16}
-                  speed={0.06}
-                  particleBaseSize={50}
-                  moveParticlesOnHover={false}
-                  alphaParticles={true}
-                  disableRotation={false}
-                  className="absolute inset-0 w-full h-full"
-                />
-              </div>
-            )}
+            <div className="absolute inset-0 bg-gradient-to-br from-[#5C27FE]/5 via-transparent to-[#0EA5E9]/5 pointer-events-none" />
             <div className="absolute top-0 right-0 w-44 h-44 rounded-full bg-[#5C27FE]/5 blur-3xl group-hover:bg-[#5C27FE]/10 transition-colors pointer-events-none" />
 
             <div className="space-y-3 lg:space-y-5 pb-6 lg:pb-10">
@@ -1272,6 +1287,8 @@ export default function LandingPage({
         percentComplete={percentComplete}
         onToggleFocusStatus={toggleFocusStatus}
       />
+
+      <TestimonialsSection />
 
       {/* FREQUENTLY ASKED QUESTIONS SECTION */}
       <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16 relative z-10 border-t border-gray-250/30 dark:border-white/5">

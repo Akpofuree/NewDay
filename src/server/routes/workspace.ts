@@ -574,14 +574,7 @@ workspaceRouter.post("/groups/:groupId/invitations", async (req, res, next) => {
     await query(
       `INSERT INTO group_invitations (id, group_id, email, token_hash, role, invited_by, expires_at)
        VALUES ($1, $2, $3, $4, $5, $6, NOW() + INTERVAL '7 days')`,
-      [
-        id,
-        req.params.groupId,
-        email,
-        tokenHash,
-        role,
-        req.user!.id,
-      ],
+      [id, req.params.groupId, email, tokenHash, role, req.user!.id],
     );
     const inviteUrl = `${getAppOrigin(req)}/join?token=${token}`;
     if (email) {
@@ -638,7 +631,13 @@ workspaceRouter.get("/groups/:groupId/invite-link", async (req, res, next) => {
     await query(
       `INSERT INTO group_invitations (id, group_id, email, token_hash, token_plain, role, invited_by, expires_at)
        VALUES ($1, $2, NULL, $3, $4, 'member', $5, NOW() + INTERVAL '7 days')`,
-      [`invite_${makeId()}`, req.params.groupId, tokenHash, token, req.user!.id],
+      [
+        `invite_${makeId()}`,
+        req.params.groupId,
+        tokenHash,
+        token,
+        req.user!.id,
+      ],
     );
     res.json({
       token,
@@ -682,9 +681,7 @@ workspaceRouter.post(
       res.json({
         token,
         inviteUrl: `${getAppOrigin(req)}/join?token=${token}`,
-        expiresAt: new Date(
-          Date.now() + 7 * 24 * 60 * 60 * 1000,
-        ).toISOString(),
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       });
     } catch (error) {
       next(error);
@@ -1396,22 +1393,27 @@ workspaceRouter.delete("/chat/messages/:messageId", async (req, res, next) => {
   try {
     const messageId = req.params.messageId;
 
-    const message = await query(
-      `SELECT sender_id FROM channel_messages WHERE id = $1
-       UNION ALL
-       SELECT user_id FROM chat_messages WHERE id = $1`,
+    const channelMessage = await query(
+      `SELECT sender_id FROM channel_messages WHERE id = $1`,
       [messageId],
     );
 
-    if (!message.rowCount) {
+    const chatMessage = await query(
+      `SELECT user_id FROM chat_messages WHERE id = $1`,
+      [messageId],
+    );
+
+    if (!channelMessage.rowCount && !chatMessage.rowCount) {
       res.status(404).json({ error: "Message not found" });
       return;
     }
 
-    if (
-      message.rows[0].sender_id !== req.user!.id &&
-      message.rows[0].user_id !== req.user!.id
-    ) {
+    const senderId = channelMessage.rowCount
+      ? channelMessage.rows[0].sender_id
+      : null;
+    const userId = chatMessage.rowCount ? chatMessage.rows[0].user_id : null;
+
+    if (senderId !== req.user!.id && userId !== req.user!.id) {
       res.status(403).json({ error: "You can only delete your own messages" });
       return;
     }
@@ -1442,7 +1444,8 @@ workspaceRouter.patch("/chat/messages/:messageId", async (req, res, next) => {
     await query(
       `
         UPDATE chat_messages
-        SET content = $1
+        SET content = $1,
+            updated_at = NOW()
         WHERE id = $2
         `,
       [content, req.params.messageId],

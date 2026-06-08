@@ -119,7 +119,7 @@ export default function NewGroupModal({
             </button>
             <button
               type="submit"
-              className="px-4.5 py-1.5 text-xs font-bold text-white bg-[#5C27FE] hover:bg-[#4a1ee3] rounded-lg cursor-pointer shadow-md shadow-[#5C27FE]/20"
+              className="btn-primary-shimmer ripple-effect px-4.5 py-1.5 text-xs font-bold text-white bg-[#5C27FE] hover:bg-[#4a1ee3] rounded-lg cursor-pointer shadow-md shadow-[#5C27FE]/20"
             >
               Create Project Group
             </button>

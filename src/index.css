@@ -121,3 +121,68 @@ body {
   transition-duration: 150ms;
 }
 
+/* NewDay button animation defaults */
+button:not(:disabled),
+[role="button"]:not(:disabled) {
+  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+}
+
+button:hover:not(:disabled),
+[role="button"]:hover:not(:disabled) {
+  transform: scale(1.03);
+}
+
+button:active:not(:disabled),
+[role="button"]:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+.btn-primary-shimmer {
+  background: linear-gradient(
+    90deg,
+    #5C27FE 0%,
+    #7B4FFF 40%,
+    #5C27FE 60%,
+    #5C27FE 100%
+  );
+  background-size: 200% auto;
+  animation: shimmer 3s linear infinite;
+}
+
+@keyframes ripple {
+  to {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+.ripple-effect {
+  position: relative;
+  overflow: hidden;
+}
+
+.ripple-effect::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  width: 100px;
+  height: 100px;
+  margin-top: -50px;
+  margin-left: -50px;
+  top: var(--ripple-y, 50%);
+  left: var(--ripple-x, 50%);
+  animation: ripple 0.6s linear;
+  transform: scale(0);
+  opacity: 1;
+  pointer-events: none;
+}

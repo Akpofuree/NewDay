@@ -1,4 +1,5 @@
 import bcrypt from "bcryptjs";
+import { createHash, randomBytes } from "crypto";
 import type { NextFunction, Request, Response } from "express";
 import { Router } from "express";
 import jwt from "jsonwebtoken";
@@ -24,7 +25,9 @@ const users = new Map<string, DevUser>();
 const tasks = new Map<string, any>();
 const goals = new Map<string, any>();
 const groups = new Map<string, any>();
+const channels = new Map<string, any>();
 const chatMessages = new Map<string, any>();
+const groupInvitations = new Map<string, any>();
 
 const authSchema = z.object({
   name: z.string().min(1).max(120).optional(),
@@ -76,6 +79,41 @@ function currentUserTasks(userId: string) {
   return Array.from(tasks.values())
     .filter((task) => task.userId === userId)
     .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+}
+
+function defaultGroupForUser(userId: string) {
+  return {
+    ...defaultGroups[0],
+    ownerId: userId,
+    role: "owner",
+    memberIds: [userId],
+  };
+}
+
+function getGroupsForUser(userId: string) {
+  const ownedOrJoined = Array.from(groups.values()).filter((group) =>
+    (group.memberIds || []).includes(userId),
+  );
+  return ownedOrJoined.length ? ownedOrJoined : [defaultGroupForUser(userId)];
+}
+
+function getChannelsForGroups(groupIds: string[]) {
+  const savedChannels = Array.from(channels.values()).filter((channel) =>
+    groupIds.includes(channel.groupId),
+  );
+  const fallbackChannels = defaultChannels.filter((channel) =>
+    groupIds.includes(channel.groupId),
+  );
+  return [...fallbackChannels, ...savedChannels];
+}
+
+function inviteUrl(req: Request, token: string) {
+  const origin =
+    config.appUrl ||
+    req.headers.origin ||
+    `${req.protocol}://${req.get("host")}` ||
+    "http://localhost:3000";
+  return `${String(origin).replace(/\/$/, "")}/join?token=${token}`;
 }
 
 export const devMemoryRouter = Router();
@@ -161,10 +199,12 @@ devMemoryRouter.post("/auth/reset", (_req, res) => {
 });
 
 devMemoryRouter.get("/db", requireDevAuth, (req, res) => {
+  const visibleGroups = getGroupsForUser(req.user!.id);
+  const groupIds = visibleGroups.map((group) => group.id);
   res.json({
     users: [req.user],
     currentUser: req.user,
-    groups: groups.size ? Array.from(groups.values()) : defaultGroups,
+    groups: visibleGroups,
     tasks: currentUserTasks(req.user!.id),
     goals: Array.from(goals.values()).filter(
       (goal) => goal.userId === req.user!.id,
@@ -172,7 +212,7 @@ devMemoryRouter.get("/db", requireDevAuth, (req, res) => {
     chatMessages: Array.from(chatMessages.values()).filter(
       (message) => message.userId === req.user!.id,
     ),
-    channels: defaultChannels,
+    channels: getChannelsForGroups(groupIds),
   });
 });
 
@@ -337,10 +377,219 @@ devMemoryRouter.post("/groups", requireDevAuth, (req, res) => {
   const group = {
     ...payload,
     id,
+    ownerId: req.user!.id,
+    role: "owner",
     memberIds: payload.memberIds || [req.user!.id],
   };
   groups.set(id, group);
+  const channelId = `chan_${Date.now()}`;
+  channels.set(channelId, {
+    id: channelId,
+    groupId: id,
+    name: "general",
+    description: "General discussion for everyone",
+    createdBy: req.user!.id,
+    createdAt: new Date().toISOString(),
+    memberIds: [req.user!.id],
+  });
   res.status(201).json(group);
+});
+
+devMemoryRouter.get(
+  "/groups/:groupId/members",
+  requireDevAuth,
+  (req, res) => {
+    const group =
+      groups.get(req.params.groupId) ||
+      (req.params.groupId === defaultGroups[0].id
+        ? defaultGroupForUser(req.user!.id)
+        : null);
+    if (!group || !(group.memberIds || []).includes(req.user!.id)) {
+      res.status(404).json({ error: "Group not found." });
+      return;
+    }
+    const members = (group.memberIds || [req.user!.id])
+      .map((userId: string) => users.get(userId))
+      .filter(Boolean)
+      .map((user: DevUser) => ({
+        ...publicUser(user),
+        role: user.id === group.ownerId ? "owner" : "member",
+        joinedAt: group.createdAt || new Date().toISOString(),
+      }));
+    res.json(members);
+  },
+);
+
+devMemoryRouter.patch("/groups/:groupId", requireDevAuth, (req, res) => {
+  const payload = sanitizeValue(req.body);
+  const existing =
+    groups.get(req.params.groupId) ||
+    (req.params.groupId === defaultGroups[0].id
+      ? defaultGroupForUser(req.user!.id)
+      : null);
+  if (!existing || existing.ownerId !== req.user!.id) {
+    res.status(403).json({ error: "Owner or admin access required." });
+    return;
+  }
+  const updated = {
+    ...existing,
+    ...payload,
+    id: existing.id,
+    ownerId: existing.ownerId,
+    role: "owner",
+  };
+  groups.set(updated.id, updated);
+  res.json(updated);
+});
+
+devMemoryRouter.post(
+  "/groups/:groupId/invitations",
+  requireDevAuth,
+  (req, res) => {
+    const group =
+      groups.get(req.params.groupId) ||
+      (req.params.groupId === defaultGroups[0].id
+        ? defaultGroupForUser(req.user!.id)
+        : null);
+    if (!group || group.ownerId !== req.user!.id) {
+      res.status(403).json({ error: "Owner or admin access required." });
+      return;
+    }
+    const payload = sanitizeValue(req.body);
+    const token = randomBytes(32).toString("hex");
+    const invitation = {
+      id: `invite_${Date.now()}`,
+      groupId: group.id,
+      email: payload.email ? String(payload.email).toLowerCase() : null,
+      tokenHash: createHash("sha256").update(token).digest("hex"),
+      tokenPlain: token,
+      role: payload.role === "admin" ? "admin" : "member",
+      invitedBy: req.user!.id,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      acceptedAt: null,
+      revokedAt: null,
+    };
+    groupInvitations.set(invitation.id, invitation);
+    res.status(201).json({
+      id: invitation.id,
+      token,
+      inviteUrl: inviteUrl(req, token),
+      role: invitation.role,
+      email: invitation.email,
+      emailSent: Boolean(invitation.email),
+    });
+  },
+);
+
+devMemoryRouter.get(
+  "/groups/:groupId/invite-link",
+  requireDevAuth,
+  (req, res) => {
+    const group =
+      groups.get(req.params.groupId) ||
+      (req.params.groupId === defaultGroups[0].id
+        ? defaultGroupForUser(req.user!.id)
+        : null);
+    if (!group || group.ownerId !== req.user!.id) {
+      res.status(403).json({ error: "Owner or admin access required." });
+      return;
+    }
+    const existing = Array.from(groupInvitations.values()).find(
+      (invite) =>
+        invite.groupId === group.id &&
+        !invite.email &&
+        !invite.acceptedAt &&
+        !invite.revokedAt &&
+        new Date(invite.expiresAt).getTime() > Date.now(),
+    );
+    if (existing) {
+      res.json({
+        token: existing.tokenPlain,
+        inviteUrl: inviteUrl(req, existing.tokenPlain),
+        expiresAt: existing.expiresAt,
+      });
+      return;
+    }
+    const token = randomBytes(32).toString("hex");
+    const invitation = {
+      id: `invite_${Date.now()}`,
+      groupId: group.id,
+      email: null,
+      tokenHash: createHash("sha256").update(token).digest("hex"),
+      tokenPlain: token,
+      role: "member",
+      invitedBy: req.user!.id,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      acceptedAt: null,
+      revokedAt: null,
+    };
+    groupInvitations.set(invitation.id, invitation);
+    res.json({
+      token,
+      inviteUrl: inviteUrl(req, token),
+      expiresAt: invitation.expiresAt,
+    });
+  },
+);
+
+devMemoryRouter.post(
+  "/groups/:groupId/invite-link/regenerate",
+  requireDevAuth,
+  (req, res) => {
+    for (const invite of groupInvitations.values()) {
+      if (invite.groupId === req.params.groupId && !invite.email) {
+        invite.revokedAt = new Date().toISOString();
+      }
+    }
+    const token = randomBytes(32).toString("hex");
+    const invitation = {
+      id: `invite_${Date.now()}`,
+      groupId: req.params.groupId,
+      email: null,
+      tokenHash: createHash("sha256").update(token).digest("hex"),
+      tokenPlain: token,
+      role: "member",
+      invitedBy: req.user!.id,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      acceptedAt: null,
+      revokedAt: null,
+    };
+    groupInvitations.set(invitation.id, invitation);
+    res.json({
+      token,
+      inviteUrl: inviteUrl(req, token),
+      expiresAt: invitation.expiresAt,
+    });
+  },
+);
+
+devMemoryRouter.post("/groups/join", requireDevAuth, (req, res) => {
+  const payload = sanitizeValue(req.body);
+  const tokenHash = createHash("sha256")
+    .update(String(payload.token || ""))
+    .digest("hex");
+  const invitation = Array.from(groupInvitations.values()).find(
+    (invite) =>
+      invite.tokenHash === tokenHash &&
+      !invite.acceptedAt &&
+      !invite.revokedAt &&
+      new Date(invite.expiresAt).getTime() > Date.now() &&
+      (!invite.email || invite.email === req.user!.email.toLowerCase()),
+  );
+  if (!invitation) {
+    res.status(400).json({
+      error: "Invite link is invalid, expired, or assigned to another email.",
+    });
+    return;
+  }
+  const group = groups.get(invitation.groupId);
+  if (group && !(group.memberIds || []).includes(req.user!.id)) {
+    group.memberIds = [...(group.memberIds || []), req.user!.id];
+    groups.set(group.id, group);
+  }
+  invitation.acceptedAt = new Date().toISOString();
+  invitation.acceptedBy = req.user!.id;
+  res.json({ success: true });
 });
 
 devMemoryRouter.get("/goals", requireDevAuth, (req, res) => {

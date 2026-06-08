@@ -87,15 +87,17 @@ const fragment = /* glsl */ `
   void main() {
     vec2 uv = gl_PointCoord.xy;
     float d = length(uv - vec2(0.5));
+    vec3 shimmer = 0.08 * sin(uv.yxx + uTime + vRandom.y * 6.28);
+    vec3 particleColor = clamp(vColor + shimmer, 0.0, 1.0);
     
     if(uAlphaParticles < 0.5) {
       if(d > 0.5) {
         discard;
       }
-      gl_FragColor = vec4(vColor + 0.2 * sin(uv.yxx + uTime + vRandom.y * 6.28), 1.0);
+      gl_FragColor = vec4(particleColor, 0.92);
     } else {
-      float circle = smoothstep(0.5, 0.4, d) * 0.8;
-      gl_FragColor = vec4(vColor + 0.2 * sin(uv.yxx + uTime + vRandom.y * 6.28), circle);
+      float circle = smoothstep(0.5, 0.32, d) * 0.82;
+      gl_FragColor = vec4(particleColor, circle);
     }
   }
 `;
@@ -147,6 +149,7 @@ const Particles: React.FC<ParticlesProps> = ({
     gl.canvas.style.transition = "opacity 900ms ease-in-out";
     gl.canvas.style.width = "100%";
     gl.canvas.style.height = "100%";
+    gl.canvas.style.willChange = "opacity, transform";
     gl.clearColor(0, 0, 0, 0);
     requestAnimationFrame(() => {
       gl.canvas.style.opacity = "1";

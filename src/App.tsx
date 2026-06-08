@@ -16,6 +16,8 @@ import FilterToolbar from "./components/FilterToolbar";
 import TaskListView from "./components/TaskListView";
 import KanbanView from "./components/KanbanView";
 import SettingsView from "./components/SettingsView";
+import TermsPage from "./components/TermsPage";
+import PrivacyPage from "./components/PrivacyPage";
 import useAppState from "./hooks/useAppState";
 import useTaskHandlers from "./hooks/useTaskHandlers";
 import useGroupHandlers from "./hooks/useGroupHandlers";
@@ -199,6 +201,9 @@ export default function App() {
   const currentCategoryObj = groups.find((g) => g.id === activeCategory);
   const [greetingLanguage] = useState(() => getUserLanguage());
   const [greetingNow, setGreetingNow] = useState(() => new Date());
+  const [currentPath, setCurrentPath] = useState(() =>
+    typeof window === "undefined" ? "/" : window.location.pathname,
+  );
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -207,10 +212,17 @@ export default function App() {
     return () => window.clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handlePopState = () => setCurrentPath(window.location.pathname);
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
   const greeting =
     currentUser &&
     getGreeting({
-      name: currentUser.name,
+      name: currentUser.name.split(" ").filter(Boolean)[0] || currentUser.name,
       language: greetingLanguage,
       timezone: currentUser.timezone,
       now: greetingNow,
@@ -221,6 +233,22 @@ export default function App() {
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
   };
+
+  const exitLegalPage = () => {
+    if (typeof window !== "undefined") {
+      window.history.pushState({}, "", "/");
+      setCurrentPath("/");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
+  if (currentPath === "/terms") {
+    return <TermsPage darkMode={darkMode} onBack={exitLegalPage} />;
+  }
+
+  if (currentPath === "/privacy") {
+    return <PrivacyPage darkMode={darkMode} onBack={exitLegalPage} />;
+  }
 
   if (!authChecked) {
     return (

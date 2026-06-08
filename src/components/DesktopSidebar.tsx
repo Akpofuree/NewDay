@@ -376,6 +376,24 @@ export default function DesktopSidebar({
               <LogOut size={13} />
             </button>
           </div>
+
+          <div className="pt-3 border-t border-gray-100 dark:border-white/5">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-2 mb-1.5">
+              Legal
+            </p>
+            <a
+              href="/terms"
+              className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-xs font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-200/40 dark:hover:bg-white/5 hover:text-gray-800 dark:hover:text-white transition-all duration-200"
+            >
+              Terms of Service
+            </a>
+            <a
+              href="/privacy"
+              className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-xs font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-200/40 dark:hover:bg-white/5 hover:text-gray-800 dark:hover:text-white transition-all duration-200"
+            >
+              Privacy Policy
+            </a>
+          </div>
         </div>
       </div>
     </aside>

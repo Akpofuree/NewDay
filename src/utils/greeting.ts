@@ -37,7 +37,7 @@ const greetings: Record<TimeOfDay, Record<Language, string>> = {
     en: "Good evening",
     fr: "Bonsoir",
     ha: "Ina wuni",
-    yo: "Ẹ kúrolẹ",
+    yo: "Ẹ kúrọlẹ",
     ig: "Anyasị ọma",
     ef: "Mme efok",
     ur: "Ẹvẹningọ ọfẹ",
@@ -95,16 +95,12 @@ function getDateInTimezone(date: Date, timezone: string): Date {
       hour12: false,
     });
     const parts = formatter.formatToParts(date);
-    const hour = parseInt(parts.find((p) => p.type === "hour")?.value || "0");
-    const minute = parseInt(
-      parts.find((p) => p.type === "minute")?.value || "0",
-    );
-    const second = parseInt(
-      parts.find((p) => p.type === "second")?.value || "0",
-    );
+    const hour = Number(parts.find((p) => p.type === "hour")?.value || "0");
+    const minute = Number(parts.find((p) => p.type === "minute")?.value || "0");
+    const second = Number(parts.find((p) => p.type === "second")?.value || "0");
 
     const result = new Date(date);
-    result.setHours(hour, minute, second);
+    result.setHours(hour === 24 ? 0 : hour, minute, second);
     return result;
   } catch {
     return date;

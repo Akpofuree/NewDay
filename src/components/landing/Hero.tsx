@@ -1,10 +1,10 @@
-import React from "react";
+import React, { useState } from "react";
 import { motion } from "motion/react";
 import { Sparkles, Play, Check, ArrowRight } from "lucide-react";
 import Particles from "../Particles";
+import Galaxy from "../Galaxy";
 import { User } from "../../types";
-
-const logoImage = new URL("../../images/logo.png", import.meta.url).href;
+import PulsatingButton from "../../registry/magicui/pulsating-button";
 
 interface HeroProps {
   isDarkHook: boolean;
@@ -21,48 +21,67 @@ export default function Hero({
   setAuthMode,
   setIsAuthOpen,
 }: HeroProps) {
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setMousePos({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+    });
+  };
+
   return (
-    <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 pb-16 text-center relative overflow-hidden z-10">
+    <section
+      onMouseMove={handleMouseMove}
+      style={
+        isDarkHook
+          ? {
+              background: `radial-gradient(600px circle at ${mousePos.x}px ${mousePos.y}px, rgba(92, 39, 254, 0.07), transparent 40%)`,
+            }
+          : undefined
+      }
+      className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 pb-16 text-center relative overflow-hidden z-10"
+    >
       <div className="absolute inset-0 -z-10 pointer-events-none">
-        <Particles
-          particleCount={isDarkHook ? 360 : 980}
-          particleSpread={isDarkHook ? 12 : 28}
-          speed={0.1}
-          particleColors={
-            isDarkHook ? ["#ffffff"] : ["#312E81", "#0F766E", "#B91C1C"]
-          }
-          moveParticlesOnHover={true}
-          particleHoverFactor={1}
-          alphaParticles={false}
-          particleBaseSize={isDarkHook ? 160 : 260}
-          sizeRandomness={1.4}
-          cameraDistance={20}
-          disableRotation={false}
-          className="absolute inset-0 w-full h-full"
-        />
         {isDarkHook ? (
-          <div className="absolute inset-0 bg-slate-950/74" />
+          <>
+            <Galaxy
+              hueShift={240}
+              density={1.35}
+              glowIntensity={0.55}
+              saturation={0.8}
+              mouseRepulsion={false}
+              mouseInteraction={false}
+              twinkleIntensity={0.35}
+              rotationSpeed={0.06}
+              transparent={true}
+              className="absolute inset-0 w-full h-full"
+            />
+            <div className="absolute inset-0 bg-slate-950/34" />
+          </>
         ) : (
           <>
+            <Particles
+              particleCount={980}
+              particleSpread={28}
+              speed={0.1}
+              particleColors={["#312E81", "#0F766E", "#B91C1C"]}
+              moveParticlesOnHover={true}
+              particleHoverFactor={1}
+              alphaParticles={true}
+              particleBaseSize={260}
+              sizeRandomness={1.4}
+              cameraDistance={20}
+              disableRotation={false}
+              className="absolute inset-0 w-full h-full"
+            />
             <div className="absolute inset-0 bg-gradient-to-br from-[#eff6ff]/35 via-white/55 to-[#f8fafc]/60" />
             <div className="absolute left-1/2 top-[-5%] h-72 w-72 -translate-x-1/2 rounded-full bg-[#c7d2fe]/25 blur-3xl" />
             <div className="absolute right-10 top-20 h-56 w-56 rounded-full bg-[#dbeafe]/30 blur-3xl" />
           </>
         )}
       </div>
-
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="mb-6 flex justify-center"
-      >
-        <img
-          src={logoImage}
-          alt="NewDay logo"
-          className="h-24 w-24 sm:h-28 sm:w-28 md:h-32 md:w-32 object-contain"
-        />
-      </motion.div>
 
       <motion.div
         initial={{ opacity: 0, y: -10 }}
@@ -133,16 +152,23 @@ export default function Hero({
           </button>
         )}
 
-        <a
-          href="#simulator"
-          className="w-full sm:w-auto text-xs font-bold px-6 py-3.5 rounded-2xl bg-gray-100 dark:bg-white/5 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/10 border border-gray-250/50 dark:border-white/10 transition-all flex items-center justify-center gap-2 cursor-pointer"
+        <PulsatingButton
+          type="button"
+          onClick={() =>
+            document
+              .getElementById("simulator")
+              ?.scrollIntoView({ behavior: "smooth", block: "start" })
+          }
+          className="w-full sm:w-auto text-xs font-bold"
+          buttonClassName="rounded-2xl bg-gray-100 dark:bg-white/5 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/10 border border-gray-250/50 dark:border-white/10 transition-all flex items-center justify-center gap-2 px-6 py-3.5"
+          pulseColor="rgba(92, 39, 254, 0.5)"
         >
           <Play
             size={11}
             className="fill-current text-gray-600 dark:text-gray-400"
           />
           <span>Interactive Simulator</span>
-        </a>
+        </PulsatingButton>
       </motion.div>
 
       <motion.div
