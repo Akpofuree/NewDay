@@ -10,6 +10,7 @@ import {
   AIRoadmapItem,
   Attachment,
 } from "../types";
+import NotesEditor from "./NotesEditor";
 import {
   X,
   Calendar,
@@ -59,9 +60,9 @@ export default function TaskDetailDrawer({
   onDeleteTask,
   handleToggleComplete,
 }: TaskDetailDrawerProps) {
-  const [activeTab, setActiveTab] = useState<
-    "comments" | "activity" | "learning_coach"
-  >("comments");
+  const [activeTab, setActiveTab] = useState<"comments" | "activity" | "learning_coach" | "notes">(
+    "comments"
+  );
   const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
   const [newCommentText, setNewCommentText] = useState("");
   const [tagInput, setTagInput] = useState("");
@@ -127,20 +128,16 @@ export default function TaskDetailDrawer({
           };
           const withAct = addActivity(
             updated,
-            "Completed 25-min Pomodoro (🍅) Focus Cycle successfully!",
+            "Completed 25-min Pomodoro (🍅) Focus Cycle successfully!"
           );
           onUpdateTask(withAct);
         }
 
-        alert(
-          "🍅 Focus Session complete! Time for a well-deserved 5-minute break.",
-        );
+        alert("🍅 Focus Session complete! Time for a well-deserved 5-minute break.");
         setPomodoroMode("break");
         setTimeLeft(300); // 5 minutes breather
       } else {
-        alert(
-          " Breathe in... Breath out. Rest cycle completed, ready to jump back in?",
-        );
+        alert(" Breathe in... Breath out. Rest cycle completed, ready to jump back in?");
         setPomodoroMode("focus");
         setTimeLeft(1500); // Back to focus!
       }
@@ -174,10 +171,7 @@ export default function TaskDetailDrawer({
       return;
     }
     const updated = { ...task, title: titleValue };
-    const withActivity = addActivity(
-      updated,
-      `renamed outline to "${titleValue}"`,
-    );
+    const withActivity = addActivity(updated, `renamed outline to "${titleValue}"`);
     onUpdateTask(withActivity);
     setIsEditingTitle(false);
   };
@@ -241,9 +235,7 @@ export default function TaskDetailDrawer({
       actionStr = u ? `assigned task to ${u.name}` : "removed assignee";
     } else if (field === "groupId") {
       const g = groups.find((x) => x.id === value);
-      actionStr = g
-        ? `associated task with group "${g.name}"`
-        : "removed group alignment";
+      actionStr = g ? `associated task with group "${g.name}"` : "removed group alignment";
     } else if (field === "dueDate") {
       actionStr = value
         ? `set deadline date to ${new Date(value).toLocaleDateString()}`
@@ -275,10 +267,7 @@ export default function TaskDetailDrawer({
       ...task,
       subtasks: [...(task.subtasks || []), newSub],
     };
-    const withActivity = addActivity(
-      updated,
-      `added subtask checklist row "${newSub.title}"`,
-    );
+    const withActivity = addActivity(updated, `added subtask checklist row "${newSub.title}"`);
     onUpdateTask(withActivity);
     setNewSubtaskTitle("");
 
@@ -298,10 +287,7 @@ export default function TaskDetailDrawer({
       // Replace optimistic subtask id/details if server returned authoritative data
       const reconciled = {
         ...task,
-        subtasks: [
-          ...(task.subtasks || []).filter((s) => s.id !== newSub.id),
-          saved,
-        ],
+        subtasks: [...(task.subtasks || []).filter((s) => s.id !== newSub.id), saved],
       };
       onUpdateTask(reconciled);
     } catch (err) {
@@ -311,7 +297,7 @@ export default function TaskDetailDrawer({
 
   const handleToggleSubtask = async (subId: string, isCompleted: boolean) => {
     const updatedSubtasks = (task.subtasks || []).map((s) =>
-      s.id === subId ? { ...s, isCompleted } : s,
+      s.id === subId ? { ...s, isCompleted } : s
     );
     let updated = { ...task, subtasks: updatedSubtasks } as Task;
 
@@ -350,9 +336,7 @@ export default function TaskDetailDrawer({
       // Update with server result
       const reconciled = {
         ...task,
-        subtasks: (task.subtasks || []).map((s) =>
-          s.id === saved.id ? saved : s,
-        ),
+        subtasks: (task.subtasks || []).map((s) => (s.id === saved.id ? saved : s)),
       };
       onUpdateTask(reconciled);
     } catch (err) {
@@ -366,9 +350,7 @@ export default function TaskDetailDrawer({
     const updatedSubtasks = (task.subtasks || []).filter((s) => s.id !== subId);
     const updated = { ...task, subtasks: updatedSubtasks };
 
-    const actionText = targetSub
-      ? `deleted subtask "${targetSub.title}"`
-      : "removed subtask row";
+    const actionText = targetSub ? `deleted subtask "${targetSub.title}"` : "removed subtask row";
     const withActivity = addActivity(updated, actionText);
     onUpdateTask(withActivity);
 
@@ -418,7 +400,7 @@ export default function TaskDetailDrawer({
     };
     const withActivity = addActivity(
       updated,
-      `manually logged ${minutes} minutes of dedicated workflow`,
+      `manually logged ${minutes} minutes of dedicated workflow`
     );
     onUpdateTask(withActivity);
     setManualTimeMinutes("");
@@ -443,9 +425,7 @@ export default function TaskDetailDrawer({
     }
   };
 
-  const handleManualFileSelect = async (
-    e: React.ChangeEvent<HTMLInputElement>,
-  ) => {
+  const handleManualFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
       await processAttachmentUpload(files[0]);
@@ -487,10 +467,7 @@ export default function TaskDetailDrawer({
         ...task,
         attachments: [...currentAttachments, fileObj],
       };
-      const withActivity = addActivity(
-        updated,
-        `attached workspace resource "${file.name}"`,
-      );
+      const withActivity = addActivity(updated, `attached workspace resource "${file.name}"`);
       onUpdateTask(withActivity);
     } catch (err: any) {
       setUploadError(err.message || "Failure deploying attachment files.");
@@ -508,7 +485,7 @@ export default function TaskDetailDrawer({
     };
     const withActivity = addActivity(
       updated,
-      `removed workspace resources attachment: "${targetFile?.fileName || "Resource"}"`,
+      `removed workspace resources attachment: "${targetFile?.fileName || "Resource"}"`
     );
     onUpdateTask(withActivity);
   };
@@ -521,7 +498,7 @@ export default function TaskDetailDrawer({
       updated,
       toggleVal
         ? "Configured task as an Intelligent Learning Goal"
-        : "Removed learning goal status constraints",
+        : "Removed learning goal status constraints"
     );
     onUpdateTask(updated);
     if (toggleVal) {
@@ -541,8 +518,7 @@ export default function TaskDetailDrawer({
         method: "POST",
         body: JSON.stringify({
           skillName: task.title,
-          description:
-            task.description || "Provide progressive technical overview",
+          description: task.description || "Provide progressive technical overview",
         }),
       });
 
@@ -570,7 +546,7 @@ export default function TaskDetailDrawer({
 
       const withActivity = addActivity(
         updated,
-        `Generated custom study roadmap via Google Gemini! ✨`,
+        `Generated custom study roadmap via Google Gemini! ✨`
       );
       onUpdateTask(withActivity);
 
@@ -585,7 +561,7 @@ export default function TaskDetailDrawer({
       console.error(err);
       setRoadmapError(
         err.message ||
-          "Failure prompting virtual teacher. Double-check your API credentials key values.",
+          "Failure prompting virtual teacher. Double-check your API credentials key values."
       );
     } finally {
       setIsGeneratingRoadmap(false);
@@ -604,7 +580,7 @@ export default function TaskDetailDrawer({
     const updated = { ...task, aiRoadmap: progressRoad };
     const withAct = addActivity(
       updated,
-      `${isDone ? "Conquered" : "Reset"} checkpoint sequence Phase ${phaseIndex + 1}: ${progressRoad[phaseIndex].title}`,
+      `${isDone ? "Conquered" : "Reset"} checkpoint sequence Phase ${phaseIndex + 1}: ${progressRoad[phaseIndex].title}`
     );
     onUpdateTask(withAct);
   };
@@ -615,10 +591,7 @@ export default function TaskDetailDrawer({
     if (!aiChatText.trim() || isAiResponding) return;
 
     const userMsg = aiChatText.trim();
-    const updatedHistory = [
-      ...aiChatMessages,
-      { role: "user" as const, text: userMsg },
-    ];
+    const updatedHistory = [...aiChatMessages, { role: "user" as const, text: userMsg }];
     setAiChatMessages(updatedHistory);
     setAiChatText("");
     setIsAiResponding(true);
@@ -713,11 +686,7 @@ export default function TaskDetailDrawer({
             {/* Learning goal quick control */}
             <button
               onClick={handleToggleLearningGoal}
-              title={
-                task.isLearningGoal
-                  ? "Disable Learning Hub"
-                  : "Enable Smart Learning Hub"
-              }
+              title={task.isLearningGoal ? "Disable Learning Hub" : "Enable Smart Learning Hub"}
               className={`p-1.5 rounded-lg flex items-center gap-1 cursor-pointer transition-all ${
                 task.isLearningGoal
                   ? "bg-amber-100 text-amber-700 dark:bg-amber-950/45 dark:text-amber-400"
@@ -725,16 +694,12 @@ export default function TaskDetailDrawer({
               }`}
             >
               <BrainCircuit size={15} />
-              <span className="text-[10px] font-bold uppercase">
-                Learning Coach
-              </span>
+              <span className="text-[10px] font-bold uppercase">Learning Coach</span>
             </button>
 
             <button
               onClick={() => {
-                if (
-                  confirm("Are you strictly sure you want to delete this task?")
-                ) {
+                if (confirm("Are you strictly sure you want to delete this task?")) {
                   onDeleteTask(task.id);
                   onClose();
                 }
@@ -779,9 +744,7 @@ export default function TaskDetailDrawer({
               </h2>
             )}
             <div className="flex items-center gap-2 mt-1.5 px-2">
-              <span className="text-[9px] text-gray-400 font-mono">
-                ID: {task.id}
-              </span>
+              <span className="text-[9px] text-gray-400 font-mono">ID: {task.id}</span>
               {task.isLearningGoal && (
                 <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-amber-600 bg-amber-500/10 px-1.5 py-0.5 rounded-full">
                   <Flame size={8} className="animate-pulse" />
@@ -816,10 +779,7 @@ export default function TaskDetailDrawer({
               <div className="p-3 bg-red-500/5 dark:bg-[#FF4D4D]/5 border border-red-500/10 dark:border-red-500/10 rounded-xl flex items-center justify-between gap-2">
                 <div className="space-y-0.5">
                   <div className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-red-500">
-                    <span>
-                      🍅{" "}
-                      {pomodoroMode === "focus" ? "Focus Work" : "Short Break"}
-                    </span>
+                    <span>🍅 {pomodoroMode === "focus" ? "Focus Work" : "Short Break"}</span>
                   </div>
                   <div className="font-mono font-black text-2xl text-gray-900 dark:text-white">
                     {Math.floor(timeLeft / 60)
@@ -838,11 +798,7 @@ export default function TaskDetailDrawer({
                         : "bg-red-500 hover:bg-red-600"
                     }`}
                   >
-                    {isPomodoroActive ? (
-                      <Square size={12} />
-                    ) : (
-                      <Play size={12} />
-                    )}
+                    {isPomodoroActive ? <Square size={12} /> : <Play size={12} />}
                   </button>
                   <button
                     onClick={() => {
@@ -927,9 +883,7 @@ export default function TaskDetailDrawer({
               </label>
               <select
                 value={task.groupId || ""}
-                onChange={(e) =>
-                  handleDirectUpdate("groupId", e.target.value || undefined)
-                }
+                onChange={(e) => handleDirectUpdate("groupId", e.target.value || undefined)}
                 className="w-full text-xs font-semibold bg-gray-50 dark:bg-black/20 text-gray-800 dark:text-gray-200 border border-gray-200/50 dark:border-white/5 py-1.5 px-2.5 rounded-lg focus:outline-none"
               >
                 <option value="">Standard Task Bucket</option>
@@ -949,9 +903,7 @@ export default function TaskDetailDrawer({
               </label>
               <select
                 value={task.assigneeId || ""}
-                onChange={(e) =>
-                  handleDirectUpdate("assigneeId", e.target.value || undefined)
-                }
+                onChange={(e) => handleDirectUpdate("assigneeId", e.target.value || undefined)}
                 className="w-full text-xs font-semibold bg-gray-50 dark:bg-black/20 text-gray-800 dark:text-gray-200 border border-gray-200/50 dark:border-white/5 py-1.5 px-2.5 rounded-lg focus:outline-none"
               >
                 <option value="">Unassigned</option>
@@ -1067,8 +1019,7 @@ export default function TaskDetailDrawer({
           <div className="space-y-3 text-left">
             <div className="flex items-center justify-between">
               <h4 className="text-[11px] font-bold uppercase tracking-wider text-gray-500">
-                Action Checklist (
-                {(task.subtasks || []).filter((s) => s.isCompleted).length}/
+                Action Checklist ({(task.subtasks || []).filter((s) => s.isCompleted).length}/
                 {(task.subtasks || []).length})
               </h4>
               {(task.subtasks || []).length > 0 && (
@@ -1076,7 +1027,7 @@ export default function TaskDetailDrawer({
                   {Math.round(
                     ((task.subtasks || []).filter((s) => s.isCompleted).length /
                       (task.subtasks || []).length) *
-                      100,
+                      100
                   )}
                   % Complete
                 </span>
@@ -1094,9 +1045,7 @@ export default function TaskDetailDrawer({
                     <input
                       type="checkbox"
                       checked={sub.isCompleted}
-                      onChange={(e) =>
-                        handleToggleSubtask(sub.id, e.target.checked)
-                      }
+                      onChange={(e) => handleToggleSubtask(sub.id, e.target.checked)}
                       className="w-3.5 h-3.5 rounded border-gray-300 dark:border-white/20 text-[#5C27FE] focus:ring-0 cursor-pointer"
                     />
                     <span
@@ -1138,9 +1087,7 @@ export default function TaskDetailDrawer({
           <div className="space-y-3.5 text-left">
             <h4 className="text-[11px] font-bold uppercase tracking-wider text-gray-500 flex items-center gap-1">
               <Paperclip size={11} />
-              <span>
-                File Coordinates & Assets ({task.attachments?.length || 0})
-              </span>
+              <span>File Coordinates & Assets ({task.attachments?.length || 0})</span>
             </h4>
 
             {/* Drag Zone Container */}
@@ -1166,9 +1113,7 @@ export default function TaskDetailDrawer({
               <UploadCloud size={24} className="text-gray-400 mb-1" />
               <p className="text-xs font-bold text-gray-700 dark:text-gray-300">
                 Drag workspace resources directly, or{" "}
-                <span className="text-[#5C27FE] dark:text-[#a085ff]">
-                  browse local files
-                </span>
+                <span className="text-[#5C27FE] dark:text-[#a085ff]">browse local files</span>
               </p>
               <p className="text-[9px] text-gray-400 mt-0.5">
                 Supports PDF, PNG, IPG, DOCX indexes.
@@ -1291,6 +1236,19 @@ export default function TaskDetailDrawer({
                   <span>Learning Assistant</span>
                 </button>
               )}
+
+              <button
+                onClick={() => setActiveTab("notes")}
+                className={`py-2 text-xs font-bold border-b-2 tracking-wide uppercase transition-all flex items-center gap-1.5 cursor-pointer ${
+                  activeTab === "notes"
+                    ? "border-[#5C27FE] text-[#5C27FE] dark:text-[#a085ff] dark:border-[#a085ff]"
+                    : "border-transparent text-gray-400 hover:text-gray-600 dark:hover:text-zinc-300"
+                }`}
+              >
+                <Folder size={13} />
+                <span>Notes</span>
+                {task.notes && <span className="w-1.5 h-1.5 rounded-full bg-[#5C27FE]"></span>}
+              </button>
             </div>
           </div>
 
@@ -1307,21 +1265,14 @@ export default function TaskDetailDrawer({
                   ) : (
                     task.comments.map((comm) => {
                       const commenter = users.find((u) => u.id === comm.userId);
-                      const formattedTime = new Date(
-                        comm.createdAt,
-                      ).toLocaleTimeString([], {
+                      const formattedTime = new Date(comm.createdAt).toLocaleTimeString([], {
                         hour: "2-digit",
                         minute: "2-digit",
                       });
-                      const formattedDateVal = new Date(
-                        comm.createdAt,
-                      ).toLocaleDateString();
+                      const formattedDateVal = new Date(comm.createdAt).toLocaleDateString();
 
                       return (
-                        <div
-                          key={comm.id}
-                          className="flex gap-2.5 text-left items-start"
-                        >
+                        <div key={comm.id} className="flex gap-2.5 text-left items-start">
                           <img
                             src={
                               commenter?.avatarUrl ||
@@ -1353,10 +1304,7 @@ export default function TaskDetailDrawer({
                   )}
                 </div>
 
-                <form
-                  onSubmit={handleAddComment}
-                  className="flex gap-2 text-left"
-                >
+                <form onSubmit={handleAddComment} className="flex gap-2 text-left">
                   <input
                     type="text"
                     placeholder="Contribute core findings, ideas, or links..."
@@ -1383,13 +1331,11 @@ export default function TaskDetailDrawer({
                   </div>
                 ) : (
                   task.activities.map((act) => {
-                    const elapsed = new Date(act.createdAt).toLocaleTimeString(
-                      [],
-                      { hour: "2-digit", minute: "2-digit" },
-                    );
-                    const activityDate = new Date(
-                      act.createdAt,
-                    ).toLocaleDateString();
+                    const elapsed = new Date(act.createdAt).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    });
+                    const activityDate = new Date(act.createdAt).toLocaleDateString();
 
                     return (
                       <div
@@ -1421,16 +1367,12 @@ export default function TaskDetailDrawer({
                 <div className="p-4 rounded-xl bg-gradient-to-r from-amber-500/10 via-pink-500/5 to-indigo-500/10 border border-amber-500/20 relative overflow-hidden flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="space-y-1 z-10 max-w-sm">
                     <p className="text-[10px] uppercase font-mono tracking-widest text-amber-600 dark:text-amber-400 font-bold flex items-center gap-1">
-                      <Sparkles
-                        size={11}
-                        className="animate-spin text-amber-500"
-                      />
+                      <Sparkles size={11} className="animate-spin text-amber-500" />
                       Gemini Educational Architect
                     </p>
                     <p className="text-xs text-gray-700 dark:text-gray-300 leading-relaxed">
-                      Transform this workspace task into a full curriculums
-                      roadmap. Gemini constructs study phases, resources, and
-                      custom practice sandboxes immediately.
+                      Transform this workspace task into a full curriculums roadmap. Gemini
+                      constructs study phases, resources, and custom practice sandboxes immediately.
                     </p>
                   </div>
 
@@ -1469,8 +1411,8 @@ export default function TaskDetailDrawer({
                         DYNAMIC ROADMAP STEPS
                       </span>
                       <span className="text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2.5 py-0.5 rounded-full font-mono">
-                        {task.aiRoadmap.filter((p) => p.completed).length} /{" "}
-                        {task.aiRoadmap.length} COMPLETED
+                        {task.aiRoadmap.filter((p) => p.completed).length} / {task.aiRoadmap.length}{" "}
+                        COMPLETED
                       </span>
                     </div>
 
@@ -1500,9 +1442,7 @@ export default function TaskDetailDrawer({
                             <input
                               type="checkbox"
                               checked={phase.completed || false}
-                              onChange={(e) =>
-                                handleToggleRoadmapPhase(i, e.target.checked)
-                              }
+                              onChange={(e) => handleToggleRoadmapPhase(i, e.target.checked)}
                               className="w-4.5 h-4.5 text-amber-500 rounded border-amber-300 focus:ring-0 cursor-pointer flex-shrink-0 mt-0.5"
                               title="Toggle Milestone Accomplished"
                             />
@@ -1562,8 +1502,8 @@ export default function TaskDetailDrawer({
                       <div className="bg-white/45 dark:bg-black/20 p-3.5 rounded-xl border border-gray-150 dark:border-white/10 text-xs space-y-3.5 max-h-56 overflow-y-auto">
                         {aiChatMessages.length === 0 ? (
                           <p className="italic text-gray-400 text-center py-2.5">
-                            Ask your virtual AI coach any question regarding
-                            this study outline to solidify your understanding...
+                            Ask your virtual AI coach any question regarding this study outline to
+                            solidify your understanding...
                           </p>
                         ) : (
                           aiChatMessages.map((msg, mIdx) => (
@@ -1583,9 +1523,7 @@ export default function TaskDetailDrawer({
                                     : "bg-white dark:bg-[#1A1A2E]/55 border border-gray-150 dark:border-white/5 text-gray-800 dark:text-gray-200"
                                 }`}
                               >
-                                <p className="whitespace-pre-line">
-                                  {msg.text}
-                                </p>
+                                <p className="whitespace-pre-line">{msg.text}</p>
                               </div>
                             </div>
                           ))
@@ -1594,18 +1532,13 @@ export default function TaskDetailDrawer({
                         {isAiResponding && (
                           <div className="flex gap-2 justify-start items-center text-gray-400 italic">
                             <div className="w-5 h-5 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />
-                            <span>
-                              Mentor Coach formulating recommendations...
-                            </span>
+                            <span>Mentor Coach formulating recommendations...</span>
                           </div>
                         )}
                       </div>
 
                       {/* Coach Prompt Form */}
-                      <form
-                        onSubmit={askAUMentorCoaching}
-                        className="flex gap-2"
-                      >
+                      <form onSubmit={askAUMentorCoaching} className="flex gap-2">
                         <input
                           type="text"
                           placeholder="Discuss lessons, ask for debugging tips or quiz questions..."
@@ -1625,6 +1558,17 @@ export default function TaskDetailDrawer({
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* NOTES PANEL */}
+            {activeTab === "notes" && (
+              <div className="space-y-4 animate-fadeIn">
+                <NotesEditor
+                  taskId={task.id}
+                  initialNotes={task.notes}
+                  onNotesSaved={(notes) => onUpdateTask({ ...task, notes })}
+                />
               </div>
             )}
           </div>

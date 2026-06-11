@@ -18,6 +18,7 @@ model User {
   ownedGroups WorkspaceGroup[] @relation("GroupOwner")
   channelsCreated Channel[] @relation("ChannelCreator")
   channelMemberships ChannelMember[]
+  groupMemberships GroupMember[]
   messages Message[]
 }
 
@@ -25,6 +26,7 @@ model Task {
   id          String   @id @default(cuid())
   title       String
   description String?
+  notes       String?
   completed   Boolean  @default(false)
   createdAt   DateTime @default(now())
 
@@ -40,6 +42,7 @@ model WorkspaceGroup {
 
   owner    User? @relation("GroupOwner", fields: [ownerId], references: [id])
   channels Channel[]
+  members  GroupMember[]
 
   @@map("groups")
 }
@@ -72,6 +75,19 @@ model ChannelMember {
 
   @@id([channelId, userId])
   @@map("channel_members")
+}
+
+model GroupMember {
+  groupId String @map("group_id")
+  userId  String @map("user_id")
+  role    String @default("member") // "owner", "admin", "member"
+  joinedAt DateTime @default(now()) @map("joined_at")
+
+  group WorkspaceGroup @relation(fields: [groupId], references: [id])
+  user  User           @relation(fields: [userId], references: [id])
+
+  @@id([groupId, userId])
+  @@map("group_members")
 }
 
 model Message {

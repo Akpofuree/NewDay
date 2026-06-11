@@ -510,6 +510,35 @@ devMemoryRouter.get(
       });
       return;
     }
+    res.json({
+      token: null,
+      inviteUrl: null,
+      expiresAt: null,
+    });
+  },
+);
+
+devMemoryRouter.post(
+  "/groups/:groupId/invite-link",
+  requireDevAuth,
+  (req, res) => {
+    const group =
+      groups.get(req.params.groupId) ||
+      (req.params.groupId === defaultGroups[0].id
+        ? defaultGroupForUser(req.user!.id)
+        : null);
+    if (!group || group.ownerId !== req.user!.id) {
+      res.status(403).json({ error: "Owner or admin access required." });
+      return;
+    }
+
+    // Revoke existing links
+    for (const invite of groupInvitations.values()) {
+      if (invite.groupId === group.id && !invite.email) {
+        invite.revokedAt = new Date().toISOString();
+      }
+    }
+
     const token = randomBytes(32).toString("hex");
     const invitation = {
       id: `invite_${Date.now()}`,

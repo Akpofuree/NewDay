@@ -61,6 +61,7 @@ export interface Task {
   id: string;
   title: string;
   description?: string;
+  notes?: string;
   status: TaskStatus;
   priority: TaskPriority;
   dueDate?: string; // ISO string or YYYY-MM-DDTHH:MM

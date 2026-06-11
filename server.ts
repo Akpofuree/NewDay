@@ -21,6 +21,50 @@ function readCookie(header: string | undefined, name: string) {
     ?.slice(name.length + 1);
 }
 
+async function checkDueDates(io: Server) {
+  try {
+    const now = new Date();
+    const in24Hours = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
+    // Update overdue tasks
+    const overdueResult = await query(
+      `UPDATE tasks
+       SET status = 'overdue', updated_at = NOW()
+       WHERE due_date < $1
+         AND status NOT IN ('completed', 'overdue')
+       RETURNING id, title, user_id`,
+      [now]
+    );
+
+    if (overdueResult.rowCount > 0) {
+      console.log(`Updated ${overdueResult.rowCount} tasks to overdue status`);
+      // Emit tasks_updated event for each affected user
+      const userIds = new Set(overdueResult.rows.map((row: any) => row.user_id));
+      userIds.forEach((userId) => {
+        io.emit("tasks_updated", { userId });
+      });
+    }
+
+    // Log warnings for tasks due within 24 hours
+    const warningResult = await query(
+      `SELECT id, title, user_id, due_date
+       FROM tasks
+       WHERE due_date BETWEEN $1 AND $2
+         AND status != 'completed'`,
+      [now, in24Hours]
+    );
+
+    if (warningResult.rowCount > 0) {
+      console.warn(
+        `${warningResult.rowCount} tasks due within 24 hours:`,
+        warningResult.rows.map((row: any) => `${row.title} (due: ${row.due_date})`)
+      );
+    }
+  } catch (error) {
+    console.error("Error checking due dates:", error);
+  }
+}
+
 async function startServer() {
   const app = await createApp({ serveFrontend: false });
   const httpServer = createServer(app);
@@ -45,7 +89,9 @@ async function startServer() {
 
   io.use(async (socket, next) => {
     try {
-      const token = decodeURIComponent(readCookie(socket.handshake.headers.cookie, cookieName) || "");
+      const token = decodeURIComponent(
+        readCookie(socket.handshake.headers.cookie, cookieName) || ""
+      );
       const user = await getAuthUserFromToken(token);
       if (!user) {
         next(new Error("Authentication required."));
@@ -74,7 +120,7 @@ async function startServer() {
         `INSERT INTO channel_members (channel_id, user_id, last_read_at)
          VALUES ($1, $2, NOW())
          ON CONFLICT (channel_id, user_id) DO UPDATE SET last_read_at = NOW()`,
-        [channelId, user.id],
+        [channelId, user.id]
       ).catch((error) => console.error("Failed to mark channel joined:", error));
       console.log(`${socket.id} joined channel ${channelId}`);
     });
@@ -115,7 +161,7 @@ async function startServer() {
     socket.on("disconnect", () => {
       const lastSeenAt = new Date().toISOString();
       query("UPDATE users SET last_seen_at = NOW() WHERE id = $1", [user.id]).catch((error) =>
-        console.error("Failed to update last seen:", error),
+        console.error("Failed to update last seen:", error)
       );
       io.emit("presence_update", {
         userId: user.id,
@@ -129,11 +175,14 @@ async function startServer() {
   const port = config.port || 4000;
   httpServer.listen(port, () => {
     const address = httpServer.address();
-    const actualPort =
-      typeof address === "object" && address !== null ? address.port : port;
+    const actualPort = typeof address === "object" && address !== null ? address.port : port;
 
     console.log(`Server running on port ${actualPort}`);
   });
+
+  // Run due date check on startup and every 60 minutes
+  await checkDueDates(io);
+  setInterval(() => checkDueDates(io), 60 * 60 * 1000); // 60 minutes
 }
 
 startServer().catch((error) => {

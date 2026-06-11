@@ -21,20 +21,9 @@ import PrivacyPage from "./components/PrivacyPage";
 import useAppState from "./hooks/useAppState";
 import useTaskHandlers from "./hooks/useTaskHandlers";
 import useGroupHandlers from "./hooks/useGroupHandlers";
-import {
-  getCategorizedTasks,
-  getListSections,
-  getMetrics,
-} from "./utils/taskFilters";
+import { getCategorizedTasks, getListSections, getMetrics } from "./utils/taskFilters";
 import { getGreeting, getUserLanguage } from "./utils/greeting";
-import {
-  List,
-  LayoutGrid,
-  ClipboardList,
-  PieChart,
-  Target,
-  MessageSquare,
-} from "lucide-react";
+import { List, LayoutGrid, ClipboardList, PieChart, Target, MessageSquare } from "lucide-react";
 
 const logoImage = new URL("./images/logo.png", import.meta.url).href;
 
@@ -122,26 +111,24 @@ export default function App() {
     setActiveCategory,
   });
 
-  const [sortBy, setSortBy] = useState<
-    "dueDate" | "priority" | "createdAt" | "title" | "status"
-  >(() => {
-    return (
-      (localStorage.getItem("newday_sort_by") as
-        | "dueDate"
-        | "priority"
-        | "createdAt"
-        | "title"
-        | "status") || "dueDate"
-    );
-  });
+  const [sortBy, setSortBy] = useState<"dueDate" | "priority" | "createdAt" | "title" | "status">(
+    () => {
+      return (
+        (localStorage.getItem("newday_sort_by") as
+          | "dueDate"
+          | "priority"
+          | "createdAt"
+          | "title"
+          | "status") || "dueDate"
+      );
+    }
+  );
 
   const [sortDir, setSortDir] = useState<"asc" | "desc">(() => {
     return (localStorage.getItem("newday_sort_dir") as "asc" | "desc") || "asc";
   });
 
-  const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(
-    () => new Set(),
-  );
+  const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(() => new Set());
   const [isBulkMode, setIsBulkMode] = useState<boolean>(false);
 
   useEffect(() => {
@@ -189,12 +176,12 @@ export default function App() {
     tagFilter,
     sortBy,
     sortDir,
-    activeView,
+    activeView
   );
 
-  const allTags = Array.from(
-    new Set(tasks.flatMap((task) => task.tags || [])),
-  ).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+  const allTags = Array.from(new Set(tasks.flatMap((task) => task.tags || []))).sort((a, b) =>
+    a.localeCompare(b, undefined, { sensitivity: "base" })
+  );
 
   const sections = getListSections(categorizedTasks);
   const metrics = getMetrics(tasks);
@@ -202,7 +189,7 @@ export default function App() {
   const [greetingLanguage] = useState(() => getUserLanguage());
   const [greetingNow, setGreetingNow] = useState(() => new Date());
   const [currentPath, setCurrentPath] = useState(() =>
-    typeof window === "undefined" ? "/" : window.location.pathname,
+    typeof window === "undefined" ? "/" : window.location.pathname
   );
 
   useEffect(() => {
@@ -343,13 +330,15 @@ export default function App() {
         handleLogout={handleLogout}
       />
 
-      <main className="flex-1 min-w-0 max-w-[1020px] mx-auto px-6 py-8 flex flex-col space-y-6">
+      <main
+        className={`flex-1 min-w-0 ${activeCategory === "chat" ? "w-full max-w-none mx-0" : "max-w-[1020px] mx-auto"} flex flex-col space-y-6 ${
+          activeCategory === "chat" ? "px-1 sm:px-2 md:px-6 py-4 md:py-8" : "px-6 py-8"
+        }`}
+      >
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="text-left">
             <p className="text-xs font-semibold text-[#5C27FE] dark:text-[#a085ff] tracking-wide uppercase">
-              {currentCategoryObj
-                ? "Project Category Details"
-                : "Desk dashboard"}
+              {currentCategoryObj ? "Project Category Details" : "Desk dashboard"}
             </p>
             <h2 className="font-sora font-extrabold text-2xl text-gray-900 dark:text-white flex items-center gap-2 mt-0.5">
               {getCategoryTitle()}
@@ -367,8 +356,8 @@ export default function App() {
             )}
             {activeCategory === "today" && (
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                {greeting || `Good morning, ${currentUser.name}`}. Let's make
-                today remarkably cohesive.
+                {greeting || `Good morning, ${currentUser.name}`}. Let's make today remarkably
+                cohesive.
               </p>
             )}
           </div>
@@ -392,12 +381,7 @@ export default function App() {
         </header>
 
         {activeCategory === "analytics" ? (
-          <AnalyticsView
-            tasks={tasks}
-            goals={goals}
-            users={users}
-            groups={groups}
-          />
+          <AnalyticsView tasks={tasks} goals={goals} users={users} groups={groups} />
         ) : activeCategory === "calendar" ? (
           <CalendarView
             tasks={tasks}
@@ -481,9 +465,8 @@ export default function App() {
                     Workspace is clean
                   </h4>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">
-                    No aligned coordinates fit active search criteria or
-                    category filter values. Make a new task or modify filters or
-                    search terms!
+                    No aligned coordinates fit active search criteria or category filter values.
+                    Make a new task or modify filters or search terms!
                   </p>
                 </div>
               </div>
@@ -534,9 +517,7 @@ export default function App() {
           <button
             onClick={async () => {
               const ids = Array.from(selectedTaskIds);
-              await Promise.all(
-                ids.map((id) => handleUpdateStatus(id, "completed")),
-              );
+              await Promise.all(ids.map((id) => handleUpdateStatus(id, "completed")));
               setSelectedTaskIds(new Set());
               setIsBulkMode(false);
             }}
@@ -548,9 +529,7 @@ export default function App() {
           <button
             onClick={async () => {
               const ids = Array.from(selectedTaskIds);
-              await Promise.all(
-                ids.map((id) => handleUpdateStatus(id, "pending")),
-              );
+              await Promise.all(ids.map((id) => handleUpdateStatus(id, "pending")));
               setSelectedTaskIds(new Set());
               setIsBulkMode(false);
             }}
@@ -595,9 +574,7 @@ export default function App() {
         onCreateTask={handleCreateTask}
         users={users}
         groups={groups}
-        activeGroupId={
-          activeCategory.startsWith("group_") ? activeCategory : undefined
-        }
+        activeGroupId={activeCategory.startsWith("group_") ? activeCategory : undefined}
       />
 
       {isNewGroupOpen && (

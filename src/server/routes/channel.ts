@@ -33,7 +33,7 @@ channelsRouter.get("/", async (req, res, next) => {
             WHERE gm.user_id = $1
           )
        ORDER BY c.created_at ASC`,
-      [userId],
+      [userId]
     );
 
     const channels = result.rows.map((row) => ({
@@ -70,27 +70,23 @@ channelsRouter.post("/", async (req, res, next) => {
     const userId = req.user!.id;
 
     // Verify the group exists and belongs to this user
-    const groupCheck = await query(
-      `SELECT id FROM groups WHERE id = $1 AND user_id = $2`,
-      [body.groupId, userId],
-    );
+    const groupCheck = await query(`SELECT id FROM groups WHERE id = $1 AND user_id = $2`, [
+      body.groupId,
+      userId,
+    ]);
 
     if (!groupCheck.rowCount) {
       throw new AppError(403, "Group not found.", "GROUP_NOT_FOUND");
     }
 
     // Check for duplicate channel name in this group
-    const duplicate = await query(
-      `SELECT id FROM channels WHERE group_id = $1 AND name = $2`,
-      [body.groupId, body.name],
-    );
+    const duplicate = await query(`SELECT id FROM channels WHERE group_id = $1 AND name = $2`, [
+      body.groupId,
+      body.name,
+    ]);
 
     if (duplicate.rowCount) {
-      throw new AppError(
-        409,
-        "A channel with this name already exists.",
-        "CHANNEL_EXISTS",
-      );
+      throw new AppError(409, "A channel with this name already exists.", "CHANNEL_EXISTS");
     }
 
     const id = `chan_${makeId()}`;
@@ -98,7 +94,7 @@ channelsRouter.post("/", async (req, res, next) => {
     await query(
       `INSERT INTO channels (id, group_id, name, description, created_by)
        VALUES ($1, $2, $3, $4, $5)`,
-      [id, body.groupId, body.name, body.description || null, userId],
+      [id, body.groupId, body.name, body.description || null, userId]
     );
 
     const created = await query<{
@@ -138,7 +134,7 @@ channelsRouter.post("/:channelId/read", async (req, res, next) => {
        VALUES ($1, $2, NOW())
        ON CONFLICT (channel_id, user_id)
        DO UPDATE SET last_read_at = NOW()`,
-      [channelId, userId],
+      [channelId, userId]
     );
 
     res.json({ ok: true });
@@ -148,22 +144,34 @@ channelsRouter.post("/:channelId/read", async (req, res, next) => {
 });
 
 // ─── DELETE /api/channels/:channelId ─────────────────────
-// Deletes a channel (only by creator)
+// Deletes a channel (admin or owner)
 channelsRouter.delete("/:channelId", async (req, res, next) => {
   try {
     const { channelId } = req.params;
     const userId = req.user!.id;
 
-    const channel = await query(
-      `SELECT id FROM channels WHERE id = $1 AND created_by = $2`,
-      [channelId, userId],
-    );
+    const channel = await query(`SELECT c.id, c.group_id FROM channels c WHERE c.id = $1`, [
+      channelId,
+    ]);
 
     if (!channel.rowCount) {
+      throw new AppError(404, "Channel not found.", "CHANNEL_NOT_FOUND");
+    }
+
+    const groupId = channel.rows[0].group_id;
+
+    // Check if user is admin or owner of the group
+    const roleResult = await query(
+      `SELECT role FROM group_members WHERE group_id = $1 AND user_id = $2`,
+      [groupId, userId]
+    );
+
+    const role = roleResult.rows[0]?.role || "member";
+    if (role !== "admin" && role !== "owner") {
       throw new AppError(
-        404,
-        "Channel not found or not authorized.",
-        "CHANNEL_NOT_FOUND",
+        403,
+        "Admin or owner access required to delete channels.",
+        "CHANNEL_DELETE_FORBIDDEN"
       );
     }
 

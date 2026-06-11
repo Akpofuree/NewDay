@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -55,11 +56,12 @@ export default function SettingsView({
   handleLogout,
 }: SettingsViewProps) {
   const avatarInputRef = useRef<HTMLInputElement>(null);
+  const statusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const [profileDraft, setProfileDraft] = useState({
     name: currentUser.name,
     bio: currentUser.bio || "",
-    timezone:
-      currentUser.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
+    timezone: currentUser.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
     avatarUrl: currentUser.avatarUrl,
     notificationPreferences: {
       email: currentUser.notificationPreferences?.email ?? true,
@@ -76,21 +78,56 @@ export default function SettingsView({
   const [joinToken, setJoinToken] = useState("");
   const [status, setStatus] = useState("");
 
+  // Scoped loading states — each section is independent
+  const [isProfileSaving, setIsProfileSaving] = useState(false);
+  const [isGroupSaving, setIsGroupSaving] = useState(false);
+  const [isLinkLoading, setIsLinkLoading] = useState(false);
+  const [isJoining, setIsJoining] = useState(false);
+  const [isMemberUpdating, setIsMemberUpdating] = useState(false);
+
   const selectedGroup = useMemo(
-    () => groups.find((group) => group.id === selectedGroupId) || groups[0],
-    [groups, selectedGroupId],
+    () => groups.find((group) => group.id === selectedGroupId),
+    [groups, selectedGroupId]
   );
-  const canManageGroup =
-    selectedGroup?.role === "owner" || selectedGroup?.role === "admin";
-  const groupChannels = channels.filter(
-    (channel) => channel.groupId === selectedGroup?.id,
+  const canManageGroup = useMemo(
+    () => selectedGroup?.role === "owner" || selectedGroup?.role === "admin",
+    [selectedGroup?.role]
   );
+  const groupChannels = channels.filter((channel) => channel.groupId === selectedGroup?.id);
 
   useEffect(() => {
     if (!selectedGroupId && groups[0]) {
       setSelectedGroupId(groups[0].id);
     }
   }, [groups, selectedGroupId]);
+
+  // Re-sync form if currentUser is updated externally (e.g. after syncWithServer)
+  useEffect(() => {
+    setProfileDraft({
+      name: currentUser.name,
+      bio: currentUser.bio || "",
+      timezone: currentUser.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
+      avatarUrl: currentUser.avatarUrl,
+      notificationPreferences: {
+        email: currentUser.notificationPreferences?.email ?? true,
+        mentions: currentUser.notificationPreferences?.mentions ?? true,
+        tasks: currentUser.notificationPreferences?.tasks ?? true,
+      },
+    });
+  }, [currentUser]);
+
+  // Status that auto-clears after 4s, safe on unmount
+  const setTimedStatus = useCallback((msg: string) => {
+    setStatus(msg);
+    if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
+    statusTimerRef.current = setTimeout(() => setStatus(""), 4000);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (!selectedGroup?.id || !canManageGroup) {
@@ -109,7 +146,6 @@ export default function SettingsView({
       setInviteLinkExpiresAt("");
       return;
     }
-
     apiFetch(`/api/groups/${selectedGroup.id}/invite-link`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
@@ -124,7 +160,9 @@ export default function SettingsView({
   }, [canManageGroup, selectedGroup?.id]);
 
   const saveProfile = async () => {
-    setStatus("Saving profile...");
+    if (isProfileSaving) return;
+    setIsProfileSaving(true);
+    setTimedStatus("Saving profile...");
     try {
       const res = await apiFetch("/api/profile", {
         method: "PATCH",
@@ -135,178 +173,212 @@ export default function SettingsView({
         let errorBody = null;
         try {
           errorBody = text ? JSON.parse(text) : null;
-        } catch (e) {
+        } catch {
           // non-json body
         }
-        console.warn("Profile save failed:", res.status, text);
-        setStatus(errorBody?.error || `Profile update failed. (${res.status})`);
+        setTimedStatus(errorBody?.error || `Profile update failed. (${res.status})`);
         return;
       }
       const updated = await res.json();
       setCurrentUser(updated);
       localStorage.setItem("newday_current_user", JSON.stringify(updated));
-      setStatus("Profile saved.");
+      setTimedStatus("Profile saved.");
     } catch (err) {
       console.error("Profile save error:", err);
-      setStatus("Failed to save changes. Check your connection and try again.");
+      setTimedStatus("Failed to save changes. Check your connection and try again.");
+    } finally {
+      setIsProfileSaving(false);
     }
   };
 
   const replaceAvatar = (files: FileList | null) => {
     const file = files?.[0];
-    if (!file || !file.type.startsWith("image/") || file.size > 5 * 1024 * 1024)
-      return;
+    if (!file || !file.type.startsWith("image/") || file.size > 5 * 1024 * 1024) return;
     const reader = new FileReader();
     reader.onload = () => {
-      setProfileDraft((prev) => ({
-        ...prev,
-        avatarUrl: String(reader.result),
-      }));
+      setProfileDraft((prev) => ({ ...prev, avatarUrl: String(reader.result) }));
     };
     reader.readAsDataURL(file);
   };
 
   const saveGroupSettings = async () => {
-    if (!selectedGroup) return;
-    setStatus("Saving group...");
-    const res = await apiFetch(`/api/groups/${selectedGroup.id}`, {
-      method: "PATCH",
-      body: JSON.stringify(selectedGroup),
-    });
-    if (!res.ok) {
-      setStatus("Group update failed.");
-      return;
+    if (!selectedGroup || isGroupSaving) return;
+    setIsGroupSaving(true);
+    setTimedStatus("Saving group...");
+    try {
+      const res = await apiFetch(`/api/groups/${selectedGroup.id}`, {
+        method: "PATCH",
+        body: JSON.stringify(selectedGroup),
+      });
+      if (!res.ok) {
+        const errorBody = await res.json().catch(() => null);
+        setTimedStatus(errorBody?.error || "Group update failed.");
+        return;
+      }
+      const updated = await res.json();
+      setGroups((prev) => prev.map((g) => (g.id === updated.id ? updated : g)));
+      setTimedStatus("Group saved.");
+    } catch (err) {
+      console.error("Group save error:", err);
+      setTimedStatus("Failed to save group. Check your connection and try again.");
+    } finally {
+      setIsGroupSaving(false);
     }
-    const updated = await res.json();
-    setGroups((prev) =>
-      prev.map((group) => (group.id === updated.id ? updated : group)),
-    );
-    setStatus("Group saved.");
   };
 
   const updateSelectedGroup = (changes: Partial<Group>) => {
     if (!selectedGroup) return;
-    setGroups((prev) =>
-      prev.map((group) =>
-        group.id === selectedGroup.id ? { ...group, ...changes } : group,
-      ),
-    );
+    setGroups((prev) => prev.map((g) => (g.id === selectedGroup.id ? { ...g, ...changes } : g)));
   };
 
   const createInvite = async () => {
     if (!selectedGroup) return;
     setInviteResult("");
-    const res = await apiFetch(`/api/groups/${selectedGroup.id}/invitations`, {
-      method: "POST",
-      body: JSON.stringify({ email: inviteEmail || undefined, role: "member" }),
-    });
-    if (!res.ok) {
-      const errorBody = await res.json().catch(() => null);
-      setStatus(errorBody?.error || "Invite could not be generated.");
-      return;
+    try {
+      const res = await apiFetch(`/api/groups/${selectedGroup.id}/invitations`, {
+        method: "POST",
+        body: JSON.stringify({ email: inviteEmail || undefined, role: "member" }),
+      });
+      if (!res.ok) {
+        const errorBody = await res.json().catch(() => null);
+        setTimedStatus(errorBody?.error || "Invite could not be generated.");
+        return;
+      }
+      const data = await res.json();
+      setInviteResult(data.inviteUrl);
+      setInviteEmail("");
+      setTimedStatus(inviteEmail ? "Invitation sent." : "Invite link created.");
+    } catch (err) {
+      console.error("Create invite error:", err);
+      setTimedStatus("Failed to send invite. Check your connection.");
     }
-    const data = await res.json();
-    setInviteResult(data.inviteUrl);
-    setInviteEmail("");
-    setStatus(inviteEmail ? "Invitation sent." : "Invite link created.");
   };
 
   const copyInviteLink = async () => {
     if (!inviteLink) return;
-    await navigator.clipboard?.writeText(inviteLink);
-    setStatus("Invite link copied.");
+    try {
+      await navigator.clipboard?.writeText(inviteLink);
+      setTimedStatus("Invite link copied.");
+    } catch (err) {
+      console.error("Clipboard error:", err);
+      setTimedStatus("Failed to copy link.");
+    }
   };
 
-  const regenerateInviteLink = async () => {
-    if (!selectedGroup) return;
-    setStatus("Regenerating invite link...");
-    const res = await apiFetch(
-      `/api/groups/${selectedGroup.id}/invite-link/regenerate`,
-      { method: "POST" },
-    );
-    if (!res.ok) {
-      const errorBody = await res.json().catch(() => null);
-      setStatus(errorBody?.error || "Invite link could not be regenerated.");
-      return;
+  // Unified handler: creates link on first use, regenerates if one already exists
+  const handleInviteLink = async () => {
+    if (!selectedGroup || isLinkLoading) return;
+    setIsLinkLoading(true);
+    const isCreating = !inviteLink;
+    setTimedStatus(isCreating ? "Generating invite link..." : "Regenerating invite link...");
+    try {
+      const endpoint = isCreating
+        ? `/api/groups/${selectedGroup.id}/invite-link`
+        : `/api/groups/${selectedGroup.id}/invite-link/regenerate`;
+      const res = await apiFetch(endpoint, { method: "POST" });
+      if (!res.ok) {
+        const errorBody = await res.json().catch(() => null);
+        setTimedStatus(errorBody?.error || "Could not generate invite link.");
+        return;
+      }
+      const data = await res.json();
+      setInviteLink(data.inviteUrl || "");
+      setInviteLinkExpiresAt(data.expiresAt || "");
+      setInviteResult("");
+      setTimedStatus(isCreating ? "Invite link generated." : "Invite link regenerated.");
+    } catch (err) {
+      console.error("Invite link error:", err);
+      setTimedStatus("Failed to generate link. Check your connection.");
+    } finally {
+      setIsLinkLoading(false);
     }
-    const data = await res.json();
-    setInviteLink(data.inviteUrl || "");
-    setInviteLinkExpiresAt(data.expiresAt || "");
-    setInviteResult("");
-    setStatus("Invite link regenerated.");
   };
 
   const joinByInvite = async () => {
+    if (isJoining) return;
     let token = joinToken.trim();
     if (!token) return;
-
-    const tokenMatch = token.match(/([0-9a-fA-F]{64})$/);
-    if (tokenMatch) {
-      token = tokenMatch[1];
+    try {
+      if (token.startsWith("http://") || token.startsWith("https://") || token.includes("/join")) {
+        const urlObj = new URL(token.startsWith("http") ? token : `http://${token}`);
+        const urlToken = urlObj.searchParams.get("token");
+        if (urlToken) {
+          token = urlToken;
+        }
+      }
+    } catch (e) {
+      // ignore URL parsing errors, fallback to regex
     }
-
+    const tokenMatch = token.match(/([0-9a-fA-F]{64})/);
+    if (tokenMatch) token = tokenMatch[1];
+    setIsJoining(true);
+    setTimedStatus("Joining group...");
     try {
       const res = await apiFetch("/api/groups/join", {
         method: "POST",
         body: JSON.stringify({ token }),
       });
-
       if (!res.ok) {
         const errorBody = await res.json().catch(() => null);
-        setStatus(errorBody?.error || "Invite link is invalid or expired.");
+        setTimedStatus(errorBody?.error || "Invite link is invalid or expired.");
         return;
       }
-
-      setStatus("Joined group. Syncing workspace...");
+      setTimedStatus("Joined group. Syncing workspace...");
       setJoinToken("");
       await syncWithServer();
     } catch (err) {
       console.error("Group join failed:", err);
-      setStatus("Invite link is invalid or expired.");
+      setTimedStatus("Invite link is invalid or expired.");
+    } finally {
+      setIsJoining(false);
     }
   };
 
-  const updateMemberRole = async (
-    memberId: string,
-    role: "admin" | "member",
-  ) => {
-    if (!selectedGroup) return;
-    setStatus("Updating member role...");
-    const res = await apiFetch(
-      `/api/groups/${selectedGroup.id}/members/${memberId}`,
-      {
+  const updateMemberRole = async (memberId: string, role: "admin" | "member") => {
+    if (!selectedGroup || isMemberUpdating) return;
+    setIsMemberUpdating(true);
+    setTimedStatus("Updating member role...");
+    try {
+      const res = await apiFetch(`/api/groups/${selectedGroup.id}/members/${memberId}`, {
         method: "PATCH",
         body: JSON.stringify({ role }),
-      },
-    );
-    if (res.ok) {
-      setMembers((prev) =>
-        prev.map((member) =>
-          member.id === memberId ? { ...member, role } : member,
-        ),
-      );
-      setStatus("Member role updated.");
-    } else {
-      const errorBody = await res.json().catch(() => null);
-      setStatus(errorBody?.error || "Member role could not be updated.");
+      });
+      if (res.ok) {
+        setMembers((prev) => prev.map((m) => (m.id === memberId ? { ...m, role } : m)));
+        setTimedStatus("Member role updated.");
+      } else {
+        const errorBody = await res.json().catch(() => null);
+        setTimedStatus(errorBody?.error || "Member role could not be updated.");
+      }
+    } catch (err) {
+      console.error("Member role update error:", err);
+      setTimedStatus("Failed to update role. Check your connection and try again.");
+    } finally {
+      setIsMemberUpdating(false);
     }
   };
 
-  const removeMember = async (memberId: string) => {
-    if (!selectedGroup) return;
-    setStatus("Removing member...");
-    const res = await apiFetch(
-      `/api/groups/${selectedGroup.id}/members/${memberId}`,
-      {
+  const removeMember = async (memberId: string, memberName: string) => {
+    if (!selectedGroup || isMemberUpdating) return;
+    if (!window.confirm(`Are you sure you want to remove ${memberName} from this group?`)) return;
+    setIsMemberUpdating(true);
+    setTimedStatus("Removing member...");
+    try {
+      const res = await apiFetch(`/api/groups/${selectedGroup.id}/members/${memberId}`, {
         method: "DELETE",
-      },
-    );
-    if (res.ok) {
-      setMembers((prev) => prev.filter((member) => member.id !== memberId));
-      setStatus("Member removed.");
-    } else {
-      const errorBody = await res.json().catch(() => null);
-      setStatus(errorBody?.error || "Member could not be removed.");
+      });
+      if (res.ok) {
+        setMembers((prev) => prev.filter((m) => m.id !== memberId));
+        setTimedStatus("Member removed.");
+      } else {
+        const errorBody = await res.json().catch(() => null);
+        setTimedStatus(errorBody?.error || "Member could not be removed.");
+      }
+    } catch (err) {
+      console.error("Member removal error:", err);
+      setTimedStatus("Failed to remove member. Check your connection and try again.");
+    } finally {
+      setIsMemberUpdating(false);
     }
   };
 
@@ -319,6 +391,7 @@ export default function SettingsView({
       )}
 
       <section className="grid md:grid-cols-2 gap-4">
+        {/* Profile */}
         <div className="rounded-lg border border-gray-200/60 dark:border-white/10 bg-white/55 dark:bg-black/15 p-4 space-y-3">
           <div className="flex items-center gap-2 text-sm font-extrabold text-gray-900 dark:text-white">
             <UserRound size={16} className="text-[#5C27FE]" />
@@ -337,7 +410,7 @@ export default function SettingsView({
                 type="file"
                 accept="image/*"
                 className="hidden"
-                onChange={(event) => replaceAvatar(event.target.files)}
+                onChange={(e) => replaceAvatar(e.target.files)}
               />
               <button
                 type="button"
@@ -351,40 +424,33 @@ export default function SettingsView({
           </div>
           <input
             value={profileDraft.name}
-            onChange={(event) =>
-              setProfileDraft((prev) => ({ ...prev, name: event.target.value }))
-            }
+            onChange={(e) => setProfileDraft((prev) => ({ ...prev, name: e.target.value }))}
             className="w-full rounded-lg border border-gray-200 dark:border-white/10 bg-white/80 dark:bg-black/20 px-3 py-2 text-xs font-semibold"
             placeholder="Display name"
           />
           <textarea
             value={profileDraft.bio}
-            onChange={(event) =>
-              setProfileDraft((prev) => ({ ...prev, bio: event.target.value }))
-            }
+            onChange={(e) => setProfileDraft((prev) => ({ ...prev, bio: e.target.value }))}
             className="w-full min-h-20 rounded-lg border border-gray-200 dark:border-white/10 bg-white/80 dark:bg-black/20 px-3 py-2 text-xs font-semibold"
             placeholder="Bio"
           />
           <input
             value={profileDraft.timezone}
-            onChange={(event) =>
-              setProfileDraft((prev) => ({
-                ...prev,
-                timezone: event.target.value,
-              }))
-            }
+            onChange={(e) => setProfileDraft((prev) => ({ ...prev, timezone: e.target.value }))}
             className="w-full rounded-lg border border-gray-200 dark:border-white/10 bg-white/80 dark:bg-black/20 px-3 py-2 text-xs font-semibold"
             placeholder="Timezone"
           />
           <button
             type="button"
             onClick={saveProfile}
-            className="rounded-lg bg-[#5C27FE] px-3 py-2 text-xs font-bold text-white"
+            disabled={isProfileSaving}
+            className="rounded-lg bg-[#5C27FE] px-3 py-2 text-xs font-bold text-white disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Save Profile
+            {isProfileSaving ? "Saving..." : "Save Profile"}
           </button>
         </div>
 
+        {/* Workspace */}
         <div className="rounded-lg border border-gray-200/60 dark:border-white/10 bg-white/55 dark:bg-black/15 p-4 space-y-3">
           <div className="flex items-center gap-2 text-sm font-extrabold text-gray-900 dark:text-white">
             <Workflow size={16} className="text-[#00C48C]" />
@@ -408,21 +474,23 @@ export default function SettingsView({
             <div className="flex gap-2">
               <input
                 value={joinToken}
-                onChange={(event) => setJoinToken(event.target.value)}
+                onChange={(e) => setJoinToken(e.target.value)}
                 className="min-w-0 flex-1 rounded-lg border border-gray-200 dark:border-white/10 bg-white/80 dark:bg-black/20 px-3 py-2 text-xs font-semibold"
                 placeholder="Paste invite token"
               />
               <button
                 type="button"
                 onClick={joinByInvite}
-                className="rounded-lg border border-gray-200 dark:border-white/10 px-3 py-2 text-xs font-bold"
+                disabled={isJoining}
+                className="rounded-lg border border-gray-200 dark:border-white/10 px-3 py-2 text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Join
+                {isJoining ? "Joining..." : "Join"}
               </button>
             </div>
           </div>
         </div>
 
+        {/* Appearance */}
         <div className="rounded-lg border border-gray-200/60 dark:border-white/10 bg-white/55 dark:bg-black/15 p-4 space-y-3">
           <div className="flex items-center gap-2 text-sm font-extrabold text-gray-900 dark:text-white">
             {darkMode ? (
@@ -434,13 +502,14 @@ export default function SettingsView({
           </div>
           <button
             type="button"
-            onClick={() => setDarkMode((value) => !value)}
+            onClick={() => setDarkMode((v) => !v)}
             className="rounded-lg border border-gray-200 dark:border-white/10 px-3 py-2 text-xs font-bold text-gray-700 dark:text-gray-200"
           >
             {darkMode ? "Use Light Mode" : "Use Dark Mode"}
           </button>
         </div>
 
+        {/* Notifications */}
         <div className="rounded-lg border border-gray-200/60 dark:border-white/10 bg-white/55 dark:bg-black/15 p-4 space-y-3">
           <div className="flex items-center gap-2 text-sm font-extrabold text-gray-900 dark:text-white">
             <Bell size={16} className="text-[#FF4D4D]" />
@@ -454,12 +523,12 @@ export default function SettingsView({
               <input
                 type="checkbox"
                 checked={profileDraft.notificationPreferences[key]}
-                onChange={(event) =>
+                onChange={(e) =>
                   setProfileDraft((prev) => ({
                     ...prev,
                     notificationPreferences: {
                       ...prev.notificationPreferences,
-                      [key]: event.target.checked,
+                      [key]: e.target.checked,
                     },
                   }))
                 }
@@ -475,6 +544,7 @@ export default function SettingsView({
         </div>
       </section>
 
+      {/* Group Management */}
       <section className="rounded-lg border border-gray-200/60 dark:border-white/10 bg-white/55 dark:bg-black/15 p-4 space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-sm font-extrabold text-gray-900 dark:text-white">
@@ -483,7 +553,7 @@ export default function SettingsView({
           </div>
           <select
             value={selectedGroup?.id || ""}
-            onChange={(event) => setSelectedGroupId(event.target.value)}
+            onChange={(e) => setSelectedGroupId(e.target.value)}
             className="rounded-lg border border-gray-200 dark:border-white/10 bg-white/80 dark:bg-black/20 px-3 py-2 text-xs font-semibold"
           >
             {groups.map((group) => (
@@ -494,41 +564,34 @@ export default function SettingsView({
           </select>
         </div>
 
-        {selectedGroup && (
+        {selectedGroup ? (
           <div className="grid md:grid-cols-2 gap-4">
+            {/* Left: group settings */}
             <div className="space-y-2">
               <input
                 value={selectedGroup.name}
                 disabled={!canManageGroup}
-                onChange={(event) =>
-                  updateSelectedGroup({ name: event.target.value })
-                }
+                onChange={(e) => updateSelectedGroup({ name: e.target.value })}
                 className="w-full rounded-lg border border-gray-200 dark:border-white/10 bg-white/80 dark:bg-black/20 px-3 py-2 text-xs font-semibold disabled:opacity-60"
               />
               <textarea
                 value={selectedGroup.description || ""}
                 disabled={!canManageGroup}
-                onChange={(event) =>
-                  updateSelectedGroup({ description: event.target.value })
-                }
+                onChange={(e) => updateSelectedGroup({ description: e.target.value })}
                 className="w-full min-h-20 rounded-lg border border-gray-200 dark:border-white/10 bg-white/80 dark:bg-black/20 px-3 py-2 text-xs font-semibold disabled:opacity-60"
               />
               <div className="flex gap-2">
                 <input
                   value={selectedGroup.color}
                   disabled={!canManageGroup}
-                  onChange={(event) =>
-                    updateSelectedGroup({ color: event.target.value })
-                  }
+                  onChange={(e) => updateSelectedGroup({ color: e.target.value })}
                   className="min-w-0 flex-1 rounded-lg border border-gray-200 dark:border-white/10 bg-white/80 dark:bg-black/20 px-3 py-2 text-xs font-semibold disabled:opacity-60"
                 />
                 <select
                   value={selectedGroup.visibility || "private"}
                   disabled={!canManageGroup}
-                  onChange={(event) =>
-                    updateSelectedGroup({
-                      visibility: event.target.value as "public" | "private",
-                    })
+                  onChange={(e) =>
+                    updateSelectedGroup({ visibility: e.target.value as "public" | "private" })
                   }
                   className="rounded-lg border border-gray-200 dark:border-white/10 bg-white/80 dark:bg-black/20 px-3 py-2 text-xs font-semibold disabled:opacity-60"
                 >
@@ -537,27 +600,29 @@ export default function SettingsView({
                 </select>
               </div>
               <div className="text-xs text-gray-500 dark:text-gray-400">
-                {groupChannels.length} channels · Your role:{" "}
-                {selectedGroup.role || "member"}
+                {groupChannels.length} channels · Your role: {selectedGroup.role || "member"}
               </div>
               {canManageGroup && (
                 <button
                   type="button"
                   onClick={saveGroupSettings}
-                  className="rounded-lg bg-[#5C27FE] px-3 py-2 text-xs font-bold text-white"
+                  disabled={isGroupSaving}
+                  className="rounded-lg bg-[#5C27FE] px-3 py-2 text-xs font-bold text-white disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Save Group
+                  {isGroupSaving ? "Saving..." : "Save Group"}
                 </button>
               )}
             </div>
 
+            {/* Right: invitations and members */}
             <div className="space-y-3">
               {canManageGroup ? (
                 <>
+                  {/* Email invite */}
                   <div className="flex gap-2">
                     <input
                       value={inviteEmail}
-                      onChange={(event) => setInviteEmail(event.target.value)}
+                      onChange={(e) => setInviteEmail(e.target.value)}
                       className="min-w-0 flex-1 rounded-lg border border-gray-200 dark:border-white/10 bg-white/80 dark:bg-black/20 px-3 py-2 text-xs font-semibold"
                       placeholder="Invite by email"
                     />
@@ -570,122 +635,140 @@ export default function SettingsView({
                       Invite
                     </button>
                   </div>
+
                   {inviteResult && (
                     <button
                       type="button"
-                      onClick={() =>
-                        navigator.clipboard?.writeText(inviteResult)
-                      }
+                      onClick={() => navigator.clipboard?.writeText(inviteResult)}
                       className="w-full inline-flex items-center gap-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200/80 dark:border-emerald-500/20 px-3 py-2 text-[10px] font-bold text-emerald-700 dark:text-emerald-300"
                     >
                       <Copy size={12} />
                       {inviteResult}
                     </button>
                   )}
+
+                  {/* Invite via link */}
                   <div className="space-y-2 rounded-lg border border-gray-200/70 dark:border-white/10 bg-white/70 dark:bg-black/15 p-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <div>
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center justify-between gap-2">
                         <div className="text-xs font-extrabold text-gray-900 dark:text-white">
                           Invite via link
                         </div>
                         {inviteLinkExpiresAt && (
                           <div className="text-[10px] font-semibold text-gray-400">
-                            Expires{" "}
-                            {new Date(inviteLinkExpiresAt).toLocaleDateString()}
+                            Expires {new Date(inviteLinkExpiresAt).toLocaleDateString()}
                           </div>
                         )}
                       </div>
-                      <button
-                        type="button"
-                        onClick={regenerateInviteLink}
-                        className="inline-flex items-center gap-1 rounded-lg border border-gray-200 dark:border-white/10 px-2.5 py-1.5 text-[10px] font-bold"
-                      >
-                        <RefreshCw size={11} />
-                        Regenerate
-                      </button>
-                    </div>
-                    <div className="flex gap-2">
-                      <input
-                        value={inviteLink}
-                        readOnly
-                        className="min-w-0 flex-1 rounded-lg border border-gray-200 dark:border-white/10 bg-white/80 dark:bg-black/20 px-3 py-2 text-[10px] font-semibold"
-                      />
-                      <button
-                        type="button"
-                        onClick={copyInviteLink}
-                        disabled={!inviteLink}
-                        className="inline-flex items-center gap-1 rounded-lg bg-[#5C27FE] px-3 py-2 text-[10px] font-bold text-white disabled:opacity-40"
-                      >
-                        <Copy size={11} />
-                        Copy
-                      </button>
+                      <div className="flex gap-2">
+                        <input
+                          value={inviteLink}
+                          readOnly
+                          placeholder="No link generated yet"
+                          className="min-w-0 flex-1 rounded-lg border border-gray-200 dark:border-white/10 bg-white/80 dark:bg-black/20 px-3 py-2 text-[10px] font-semibold cursor-default select-all"
+                        />
+                        {inviteLink && (
+                          <button
+                            type="button"
+                            onClick={copyInviteLink}
+                            className="inline-flex items-center gap-1 rounded-lg bg-[#5C27FE] px-2.5 py-1.5 text-[10px] font-bold text-white hover:bg-[#4b1fd3]"
+                          >
+                            <Copy size={11} />
+                            Copy
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={handleInviteLink}
+                          disabled={isLinkLoading}
+                          className="inline-flex items-center gap-1 rounded-lg border border-gray-200 dark:border-white/10 px-2.5 py-1.5 text-[10px] font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 dark:hover:bg-white/5"
+                        >
+                          <RefreshCw size={11} className={isLinkLoading ? "animate-spin" : ""} />
+                          {isLinkLoading
+                            ? inviteLink
+                              ? "Regenerating..."
+                              : "Generating..."
+                            : inviteLink
+                              ? "Regenerate"
+                              : "Generate"}
+                        </button>
+                      </div>
                     </div>
                   </div>
+
+                  {/* Members list */}
                   <div className="space-y-2 max-h-56 overflow-y-auto">
-                    {members.map((member) => (
-                      <div
-                        key={member.id}
-                        className="flex items-center justify-between gap-2 rounded-lg border border-gray-200/70 dark:border-white/10 bg-white/70 dark:bg-black/15 px-3 py-2"
-                      >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <img
-                            src={member.avatarUrl}
-                            alt={member.name}
-                            className="w-7 h-7 rounded-full object-cover"
-                          />
-                          <div className="min-w-0">
-                            <div className="text-xs font-bold truncate">
-                              {member.name}
-                            </div>
-                            <div className="text-[10px] text-gray-400 truncate">
-                              {member.email}
+                    {members.length === 0 ? (
+                      <div className="rounded-lg border border-gray-200/70 dark:border-white/10 px-3 py-3 text-xs text-gray-500">
+                        No members found.
+                      </div>
+                    ) : (
+                      members.map((member) => (
+                        <div
+                          key={member.id}
+                          className="flex items-center justify-between gap-2 rounded-lg border border-gray-200/70 dark:border-white/10 bg-white/70 dark:bg-black/15 px-3 py-2"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <img
+                              src={member.avatarUrl}
+                              alt={member.name}
+                              className="w-7 h-7 rounded-full object-cover"
+                            />
+                            <div className="min-w-0">
+                              <div className="text-xs font-bold truncate">{member.name}</div>
+                              <div className="text-[10px] text-gray-400 truncate">
+                                {member.email}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <select
-                            value={member.role}
-                            disabled={
-                              selectedGroup.role !== "owner" ||
-                              member.role === "owner"
-                            }
-                            onChange={(event) =>
-                              updateMemberRole(
-                                member.id,
-                                event.target.value as "admin" | "member",
-                              )
-                            }
-                            className="rounded-md border border-gray-200 dark:border-white/10 bg-white dark:bg-black/30 px-2 py-1 text-[10px] font-bold"
-                          >
-                            <option value="owner">Owner</option>
-                            <option value="admin">Admin</option>
-                            <option value="member">Member</option>
-                          </select>
-                          {member.role !== "owner" && (
-                            <button
-                              type="button"
-                              onClick={() => removeMember(member.id)}
-                              className="rounded-md px-2 py-1 text-[10px] font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20"
+                          <div className="flex items-center gap-1">
+                            <select
+                              value={member.role}
+                              disabled={
+                                selectedGroup.role !== "owner" ||
+                                member.role === "owner" ||
+                                isMemberUpdating
+                              }
+                              onChange={(e) =>
+                                updateMemberRole(member.id, e.target.value as "admin" | "member")
+                              }
+                              className="rounded-md border border-gray-200 dark:border-white/10 bg-white dark:bg-black/30 px-2 py-1 text-[10px] font-bold disabled:opacity-60"
                             >
-                              Remove
-                            </button>
-                          )}
+                              <option value="owner">Owner</option>
+                              <option value="admin">Admin</option>
+                              <option value="member">Member</option>
+                            </select>
+                            {member.role !== "owner" && (
+                              <button
+                                type="button"
+                                onClick={() => removeMember(member.id, member.name)}
+                                disabled={isMemberUpdating}
+                                className="rounded-md px-2 py-1 text-[10px] font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                Remove
+                              </button>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))
+                    )}
                   </div>
                 </>
               ) : (
                 <div className="rounded-lg border border-gray-200 dark:border-white/10 px-3 py-3 text-xs text-gray-500">
-                  Owner or admin access is required to manage invitations and
-                  members.
+                  Owner or admin access is required to manage invitations and members.
                 </div>
               )}
             </div>
           </div>
+        ) : (
+          <div className="rounded-lg border border-gray-200 dark:border-white/10 px-3 py-3 text-xs text-gray-500">
+            Select a group to manage its settings.
+          </div>
         )}
       </section>
 
+      {/* Security */}
       <section className="rounded-lg border border-gray-200/60 dark:border-white/10 bg-white/55 dark:bg-black/15 p-4 space-y-3">
         <div className="flex items-center gap-2 text-sm font-extrabold text-gray-900 dark:text-white">
           <Lock size={16} className="text-[#5C27FE]" />

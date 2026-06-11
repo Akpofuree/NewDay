@@ -41,9 +41,7 @@ function normalizeGroup(payload: any, userId: string): GroupPayload {
     name: String(payload.name || "Untitled group")
       .trim()
       .slice(0, 120),
-    description: payload.description
-      ? String(payload.description).slice(0, 500)
-      : undefined,
+    description: payload.description ? String(payload.description).slice(0, 500) : undefined,
     color: String(payload.color || "#5C27FE").slice(0, 24),
     ownerId: payload.ownerId || userId,
     role: payload.role || "owner",
@@ -66,8 +64,7 @@ function mapGroup(row: any): GroupPayload {
     visibility: row.visibility || payload.visibility || "private",
     avatarUrl: row.avatar_url || payload.avatarUrl || null,
     role: row.role || payload.role || "member",
-    createdAt:
-      row.created_at?.toISOString?.() || payload.createdAt || row.created_at,
+    createdAt: row.created_at?.toISOString?.() || payload.createdAt || row.created_at,
     memberIds: row.member_ids || payload.memberIds || [],
   };
 }
@@ -132,19 +129,19 @@ function mapChatMessageRow(row: any) {
 async function ensureDefaultWorkspace(userId: string) {
   const group = normalizeGroup(
     { ...defaultGroups[0], ownerId: userId, memberIds: [userId] },
-    userId,
+    userId
   );
   await query(
     `INSERT INTO groups (id, user_id, payload)
      VALUES ($1, NULL, $2)
      ON CONFLICT (id) DO NOTHING`,
-    [group.id, group],
+    [group.id, group]
   );
   await query(
     `INSERT INTO group_members (group_id, user_id, role)
      VALUES ($1, $2, 'owner')
      ON CONFLICT (group_id, user_id) DO NOTHING`,
-    [group.id, userId],
+    [group.id, userId]
   );
 
   const channel = defaultChannels[0];
@@ -152,13 +149,13 @@ async function ensureDefaultWorkspace(userId: string) {
     `INSERT INTO channels (id, group_id, name, description, created_by)
      VALUES ($1, $2, $3, $4, $5)
      ON CONFLICT (id) DO NOTHING`,
-    [channel.id, channel.groupId, channel.name, channel.description, userId],
+    [channel.id, channel.groupId, channel.name, channel.description, userId]
   );
   await query(
     `INSERT INTO channel_members (channel_id, user_id)
      VALUES ($1, $2)
      ON CONFLICT (channel_id, user_id) DO NOTHING`,
-    [channel.id, userId],
+    [channel.id, userId]
   );
   await query(
     `INSERT INTO channel_messages (id, channel_id, sender_id, content, payload)
@@ -170,14 +167,14 @@ async function ensureDefaultWorkspace(userId: string) {
       userId,
       "Welcome to General! This is the default channel for your workspace.",
       { isSystem: true },
-    ],
+    ]
   );
 }
 
 async function getGroupRole(groupId: string, userId: string) {
   const result = await query<{ role: "owner" | "admin" | "member" }>(
     "SELECT role FROM group_members WHERE group_id = $1 AND user_id = $2",
-    [groupId, userId],
+    [groupId, userId]
   );
   return result.rows[0]?.role || null;
 }
@@ -198,10 +195,26 @@ function getAppOrigin(req: any) {
 async function requireGroupAdmin(groupId: string, userId: string) {
   const role = await getGroupRole(groupId, userId);
   if (!canAdmin(role)) {
+    throw new AppError(403, "Owner or admin access required.", "GROUP_ADMIN_REQUIRED");
+  }
+  return role;
+}
+
+async function requireGroupRole(
+  groupId: string,
+  userId: string,
+  minRole: "owner" | "admin" | "member"
+) {
+  const role = await getGroupRole(groupId, userId);
+  const roleHierarchy = { owner: 3, admin: 2, member: 1 };
+  const userLevel = roleHierarchy[role || "member"];
+  const requiredLevel = roleHierarchy[minRole];
+
+  if (userLevel < requiredLevel) {
     throw new AppError(
       403,
-      "Owner or admin access required.",
-      "GROUP_ADMIN_REQUIRED",
+      `${minRole.charAt(0).toUpperCase() + minRole.slice(1)} access required.`,
+      "GROUP_ROLE_REQUIRED"
     );
   }
   return role;
@@ -218,7 +231,7 @@ workspaceRouter.get("/db", async (req, res, next) => {
          FROM tasks t
          WHERE t.user_id = $1
          ORDER BY t.created_at DESC`,
-        [req.user!.id],
+        [req.user!.id]
       ),
       query(
         `SELECT g.id,
@@ -242,7 +255,7 @@ workspaceRouter.get("/db", async (req, res, next) => {
                   g.color, g.visibility, g.avatar_url, g.payload,
                   g.created_at, g.updated_at, gm.role
          ORDER BY g.created_at ASC`,
-        [req.user!.id],
+        [req.user!.id]
       ),
       query(
         `SELECT goals.id,
@@ -256,7 +269,7 @@ workspaceRouter.get("/db", async (req, res, next) => {
          FROM goals
          WHERE goals.user_id = $1
          ORDER BY goals.created_at DESC`,
-        [req.user!.id],
+        [req.user!.id]
       ),
       query(
         `SELECT c.id,
@@ -278,7 +291,7 @@ workspaceRouter.get("/db", async (req, res, next) => {
          WHERE (g.user_id = $1 OR g.user_id IS NULL OR gm2.user_id IS NOT NULL)
          GROUP BY c.id, c.group_id, c.name, c.description, c.created_by, c.created_at
          ORDER BY c.created_at ASC`,
-        [req.user!.id],
+        [req.user!.id]
       ),
       query(
         `SELECT m.id,
@@ -324,7 +337,7 @@ workspaceRouter.get("/db", async (req, res, next) => {
          WHERE g.user_id = $1 OR g.user_id IS NULL OR gm.user_id IS NOT NULL
          ORDER BY m.created_at DESC
          LIMIT 50`,
-        [req.user!.id],
+        [req.user!.id]
       ),
     ]);
 
@@ -345,7 +358,7 @@ workspaceRouter.get("/db", async (req, res, next) => {
          FROM subtasks sub
          WHERE sub.parent_task_id = ANY($1)
          ORDER BY sub.sort_order ASC`,
-        [taskIds],
+        [taskIds]
       );
       for (const row of subsRes.rows) {
         subtasksMap[row.parent_task_id] = subtasksMap[row.parent_task_id] || [];
@@ -402,7 +415,7 @@ workspaceRouter.get("/channels", async (req, res, next) => {
        WHERE g.user_id = $1 OR g.user_id IS NULL OR gm.user_id = $1
        GROUP BY c.id, c.group_id, c.name, c.description, c.created_by, c.created_at
        ORDER BY c.created_at ASC`,
-      [req.user!.id],
+      [req.user!.id]
     );
     res.json(channelsRes.rows.map(mapChannel));
   } catch (error) {
@@ -415,7 +428,7 @@ workspaceRouter.post("/groups", async (req, res, next) => {
     const payload = sanitizeValue(req.body);
     const finalPayload = normalizeGroup(
       { ...payload, id: payload.id || `group_${Date.now()}` },
-      req.user!.id,
+      req.user!.id
     );
     await query(
       `INSERT INTO groups (id, user_id, owner_id, name, description, color, visibility, avatar_url, payload)
@@ -437,13 +450,13 @@ workspaceRouter.post("/groups", async (req, res, next) => {
         finalPayload.visibility || "private",
         finalPayload.avatarUrl || null,
         finalPayload,
-      ],
+      ]
     );
     await query(
       `INSERT INTO group_members (group_id, user_id, role)
        VALUES ($1, $2, 'owner')
        ON CONFLICT (group_id, user_id) DO UPDATE SET role = 'owner'`,
-      [finalPayload.id, req.user!.id],
+      [finalPayload.id, req.user!.id]
     );
 
     const defaultChannelId = `chan_${makeId()}`;
@@ -457,20 +470,20 @@ workspaceRouter.post("/groups", async (req, res, next) => {
         "📢 general-desk",
         "Team-wide updates and daily coordination.",
         req.user!.id,
-      ],
+      ]
     );
     await query(
       `UPDATE channels
        SET name = 'general',
            description = 'General discussion for everyone'
        WHERE id = $1`,
-      [defaultChannelId],
+      [defaultChannelId]
     );
     await query(
       `INSERT INTO channel_members (channel_id, user_id)
        VALUES ($1, $2)
        ON CONFLICT (channel_id, user_id) DO NOTHING`,
-      [defaultChannelId, req.user!.id],
+      [defaultChannelId, req.user!.id]
     );
     await query(
       `INSERT INTO channel_messages (id, channel_id, sender_id, content, payload)
@@ -482,7 +495,7 @@ workspaceRouter.post("/groups", async (req, res, next) => {
         req.user!.id,
         "Welcome to General! This is the default channel for your workspace.",
         { isSystem: true },
-      ],
+      ]
     );
 
     res.status(201).json(finalPayload);
@@ -500,7 +513,7 @@ workspaceRouter.get("/groups/:groupId/members", async (req, res, next) => {
        JOIN users u ON u.id = gm.user_id
        WHERE gm.group_id = $1
        ORDER BY CASE gm.role WHEN 'owner' THEN 1 WHEN 'admin' THEN 2 ELSE 3 END, u.name`,
-      [req.params.groupId],
+      [req.params.groupId]
     );
     res.json(
       members.rows.map((row: any) => ({
@@ -512,7 +525,7 @@ workspaceRouter.get("/groups/:groupId/members", async (req, res, next) => {
         timezone: row.timezone || "UTC",
         role: row.role,
         joinedAt: row.joined_at,
-      })),
+      }))
     );
   } catch (error) {
     next(error);
@@ -549,13 +562,13 @@ workspaceRouter.patch("/groups/:groupId", async (req, res, next) => {
           visibility,
           avatarUrl: payload.avatarUrl || null,
         }),
-      ],
+      ]
     );
     res.json(
       mapGroup({
         ...result.rows[0],
         role: await getGroupRole(req.params.groupId, req.user!.id),
-      }),
+      })
     );
   } catch (error) {
     next(error);
@@ -574,18 +587,16 @@ workspaceRouter.post("/groups/:groupId/invitations", async (req, res, next) => {
     await query(
       `INSERT INTO group_invitations (id, group_id, email, token_hash, role, invited_by, expires_at)
        VALUES ($1, $2, $3, $4, $5, $6, NOW() + INTERVAL '7 days')`,
-      [id, req.params.groupId, email, tokenHash, role, req.user!.id],
+      [id, req.params.groupId, email, tokenHash, role, req.user!.id]
     );
     const inviteUrl = `${getAppOrigin(req)}/join?token=${token}`;
     if (email) {
-      const group = await query("SELECT name FROM groups WHERE id = $1", [
-        req.params.groupId,
-      ]);
+      const group = await query("SELECT name FROM groups WHERE id = $1", [req.params.groupId]);
       await sendWorkspaceInviteEmail(
         email,
         req.user!.name,
         group.rows[0]?.name || "NewDay workspace",
-        inviteUrl,
+        inviteUrl
       );
     }
     res.status(201).json({
@@ -613,7 +624,7 @@ workspaceRouter.get("/groups/:groupId/invite-link", async (req, res, next) => {
          AND expires_at > NOW()
        ORDER BY created_at DESC
        LIMIT 1`,
-      [req.params.groupId],
+      [req.params.groupId]
     );
 
     if (existing.rowCount && existing.rows[0].token_plain) {
@@ -626,18 +637,37 @@ workspaceRouter.get("/groups/:groupId/invite-link", async (req, res, next) => {
       return;
     }
 
+    res.json({
+      token: null,
+      inviteUrl: null,
+      expiresAt: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+workspaceRouter.post("/groups/:groupId/invite-link", async (req, res, next) => {
+  try {
+    await requireGroupAdmin(req.params.groupId, req.user!.id);
+
+    // Revoke any existing active links to avoid duplicates
+    await query(
+      `UPDATE group_invitations
+       SET revoked_at = NOW()
+       WHERE group_id = $1
+         AND email IS NULL
+         AND accepted_at IS NULL
+         AND revoked_at IS NULL`,
+      [req.params.groupId]
+    );
+
     const token = randomBytes(32).toString("hex");
     const tokenHash = createHash("sha256").update(token).digest("hex");
     await query(
       `INSERT INTO group_invitations (id, group_id, email, token_hash, token_plain, role, invited_by, expires_at)
        VALUES ($1, $2, NULL, $3, $4, 'member', $5, NOW() + INTERVAL '7 days')`,
-      [
-        `invite_${makeId()}`,
-        req.params.groupId,
-        tokenHash,
-        token,
-        req.user!.id,
-      ],
+      [`invite_${makeId()}`, req.params.groupId, tokenHash, token, req.user!.id]
     );
     res.json({
       token,
@@ -649,45 +679,36 @@ workspaceRouter.get("/groups/:groupId/invite-link", async (req, res, next) => {
   }
 });
 
-workspaceRouter.post(
-  "/groups/:groupId/invite-link/regenerate",
-  async (req, res, next) => {
-    try {
-      await requireGroupAdmin(req.params.groupId, req.user!.id);
-      await query(
-        `UPDATE group_invitations
+workspaceRouter.post("/groups/:groupId/invite-link/regenerate", async (req, res, next) => {
+  try {
+    await requireGroupAdmin(req.params.groupId, req.user!.id);
+    await query(
+      `UPDATE group_invitations
          SET revoked_at = NOW()
          WHERE group_id = $1
            AND email IS NULL
            AND accepted_at IS NULL
            AND revoked_at IS NULL`,
-        [req.params.groupId],
-      );
+      [req.params.groupId]
+    );
 
-      const token = randomBytes(32).toString("hex");
-      const tokenHash = createHash("sha256").update(token).digest("hex");
-      await query(
-        `INSERT INTO group_invitations (id, group_id, email, token_hash, token_plain, role, invited_by, expires_at)
+    const token = randomBytes(32).toString("hex");
+    const tokenHash = createHash("sha256").update(token).digest("hex");
+    await query(
+      `INSERT INTO group_invitations (id, group_id, email, token_hash, token_plain, role, invited_by, expires_at)
          VALUES ($1, $2, NULL, $3, $4, 'member', $5, NOW() + INTERVAL '7 days')`,
-        [
-          `invite_${makeId()}`,
-          req.params.groupId,
-          tokenHash,
-          token,
-          req.user!.id,
-        ],
-      );
+      [`invite_${makeId()}`, req.params.groupId, tokenHash, token, req.user!.id]
+    );
 
-      res.json({
-        token,
-        inviteUrl: `${getAppOrigin(req)}/join?token=${token}`,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-      });
-    } catch (error) {
-      next(error);
-    }
-  },
-);
+    res.json({
+      token,
+      inviteUrl: `${getAppOrigin(req)}/join?token=${token}`,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
 
 workspaceRouter.post("/groups/join", async (req, res, next) => {
   try {
@@ -704,7 +725,7 @@ workspaceRouter.post("/groups/join", async (req, res, next) => {
          AND expires_at > NOW()
          AND (email IS NULL OR email = $3)
        RETURNING group_id, role`,
-      [req.user!.id, tokenHash, req.user!.email.toLowerCase()],
+      [req.user!.id, tokenHash, req.user!.email.toLowerCase()]
     );
     if (!invite.rowCount) {
       res.status(400).json({
@@ -716,7 +737,7 @@ workspaceRouter.post("/groups/join", async (req, res, next) => {
       `INSERT INTO group_members (group_id, user_id, role)
        VALUES ($1, $2, $3)
        ON CONFLICT (group_id, user_id) DO UPDATE SET role = EXCLUDED.role`,
-      [invite.rows[0].group_id, req.user!.id, invite.rows[0].role],
+      [invite.rows[0].group_id, req.user!.id, invite.rows[0].role]
     );
     res.json({ success: true, groupId: invite.rows[0].group_id });
   } catch (error) {
@@ -724,60 +745,52 @@ workspaceRouter.post("/groups/join", async (req, res, next) => {
   }
 });
 
-workspaceRouter.post(
-  "/groups/:groupId/join-requests",
-  async (req, res, next) => {
-    try {
-      const group = await query("SELECT visibility FROM groups WHERE id = $1", [
-        req.params.groupId,
-      ]);
-      if (!group.rowCount || group.rows[0].visibility !== "public") {
-        res.status(404).json({ error: "Public group not found." });
-        return;
-      }
-      const id = `join_${makeId()}`;
-      await query(
-        `INSERT INTO group_join_requests (id, group_id, user_id)
+workspaceRouter.post("/groups/:groupId/join-requests", async (req, res, next) => {
+  try {
+    const group = await query("SELECT visibility FROM groups WHERE id = $1", [req.params.groupId]);
+    if (!group.rowCount || group.rows[0].visibility !== "public") {
+      res.status(404).json({ error: "Public group not found." });
+      return;
+    }
+    const id = `join_${makeId()}`;
+    await query(
+      `INSERT INTO group_join_requests (id, group_id, user_id)
          VALUES ($1, $2, $3)
          ON CONFLICT (group_id, user_id) DO UPDATE SET status = 'pending', created_at = NOW()`,
-        [id, req.params.groupId, req.user!.id],
-      );
-      res.status(201).json({ success: true, id });
-    } catch (error) {
-      next(error);
-    }
-  },
-);
+      [id, req.params.groupId, req.user!.id]
+    );
+    res.status(201).json({ success: true, id });
+  } catch (error) {
+    next(error);
+  }
+});
 
-workspaceRouter.get(
-  "/groups/:groupId/join-requests",
-  async (req, res, next) => {
-    try {
-      await requireGroupAdmin(req.params.groupId, req.user!.id);
-      const requests = await query(
-        `SELECT jr.id, jr.user_id, jr.status, jr.created_at,
+workspaceRouter.get("/groups/:groupId/join-requests", async (req, res, next) => {
+  try {
+    await requireGroupAdmin(req.params.groupId, req.user!.id);
+    const requests = await query(
+      `SELECT jr.id, jr.user_id, jr.status, jr.created_at,
                 u.name, u.email, u.avatar_url
          FROM group_join_requests jr
          JOIN users u ON u.id = jr.user_id
          WHERE jr.group_id = $1 AND jr.status = 'pending'
          ORDER BY jr.created_at ASC`,
-        [req.params.groupId],
-      );
-      res.json(
-        requests.rows.map((row: any) => ({
-          id: row.id,
-          userId: row.user_id,
-          name: row.name,
-          email: row.email,
-          avatarUrl: row.avatar_url,
-          createdAt: row.created_at,
-        })),
-      );
-    } catch (error) {
-      next(error);
-    }
-  },
-);
+      [req.params.groupId]
+    );
+    res.json(
+      requests.rows.map((row: any) => ({
+        id: row.id,
+        userId: row.user_id,
+        name: row.name,
+        email: row.email,
+        avatarUrl: row.avatar_url,
+        createdAt: row.created_at,
+      }))
+    );
+  } catch (error) {
+    next(error);
+  }
+});
 
 workspaceRouter.post(
   "/groups/:groupId/join-requests/:requestId/approve",
@@ -789,7 +802,7 @@ workspaceRouter.post(
          SET status = 'approved', decided_by = $1, decided_at = NOW()
          WHERE id = $2 AND group_id = $3 AND status = 'pending'
          RETURNING user_id`,
-        [req.user!.id, req.params.requestId, req.params.groupId],
+        [req.user!.id, req.params.requestId, req.params.groupId]
       );
       if (!request.rowCount) {
         res.status(404).json({ error: "Join request not found." });
@@ -799,90 +812,78 @@ workspaceRouter.post(
         `INSERT INTO group_members (group_id, user_id, role)
          VALUES ($1, $2, 'member')
          ON CONFLICT (group_id, user_id) DO NOTHING`,
-        [req.params.groupId, request.rows[0].user_id],
+        [req.params.groupId, request.rows[0].user_id]
       );
       res.json({ success: true });
     } catch (error) {
       next(error);
     }
-  },
+  }
 );
 
-workspaceRouter.post(
-  "/groups/:groupId/transfer-ownership",
-  async (req, res, next) => {
-    try {
-      const role = await getGroupRole(req.params.groupId, req.user!.id);
-      if (role !== "owner") {
-        res
-          .status(403)
-          .json({ error: "Only the owner can transfer ownership." });
-        return;
-      }
-      const payload = sanitizeValue(req.body);
-      const targetUserId = String(payload.userId || "");
-      await query(
-        "UPDATE groups SET owner_id = $2, user_id = $2, updated_at = NOW() WHERE id = $1",
-        [req.params.groupId, targetUserId],
-      );
-      await query(
-        `INSERT INTO group_members (group_id, user_id, role)
+workspaceRouter.post("/groups/:groupId/transfer-ownership", async (req, res, next) => {
+  try {
+    const role = await getGroupRole(req.params.groupId, req.user!.id);
+    if (role !== "owner") {
+      res.status(403).json({ error: "Only the owner can transfer ownership." });
+      return;
+    }
+    const payload = sanitizeValue(req.body);
+    const targetUserId = String(payload.userId || "");
+    await query("UPDATE groups SET owner_id = $2, user_id = $2, updated_at = NOW() WHERE id = $1", [
+      req.params.groupId,
+      targetUserId,
+    ]);
+    await query(
+      `INSERT INTO group_members (group_id, user_id, role)
          VALUES ($1, $2, 'owner')
          ON CONFLICT (group_id, user_id) DO UPDATE SET role = 'owner'`,
-        [req.params.groupId, targetUserId],
-      );
-      await query(
-        "UPDATE group_members SET role = $3 WHERE group_id = $1 AND user_id = $2",
-        [req.params.groupId, req.user!.id, "admin"],
-      );
-      res.json({ success: true });
-    } catch (error) {
-      next(error);
-    }
-  },
-);
+      [req.params.groupId, targetUserId]
+    );
+    await query("UPDATE group_members SET role = $3 WHERE group_id = $1 AND user_id = $2", [
+      req.params.groupId,
+      req.user!.id,
+      "admin",
+    ]);
+    res.json({ success: true });
+  } catch (error) {
+    next(error);
+  }
+});
 
-workspaceRouter.patch(
-  "/groups/:groupId/members/:userId",
-  async (req, res, next) => {
-    try {
-      const actorRole = await getGroupRole(req.params.groupId, req.user!.id);
-      if (actorRole !== "owner") {
-        res
-          .status(403)
-          .json({ error: "Only the owner can change member roles." });
-        return;
-      }
-      const payload = sanitizeValue(req.body);
-      const role = payload.role === "admin" ? "admin" : "member";
-      await query(
-        `UPDATE group_members SET role = $3
-         WHERE group_id = $1 AND user_id = $2 AND role <> 'owner'`,
-        [req.params.groupId, req.params.userId, role],
-      );
-      res.json({ success: true });
-    } catch (error) {
-      next(error);
+workspaceRouter.patch("/groups/:groupId/members/:userId", async (req, res, next) => {
+  try {
+    const actorRole = await getGroupRole(req.params.groupId, req.user!.id);
+    if (actorRole !== "owner") {
+      res.status(403).json({ error: "Only the owner can change member roles." });
+      return;
     }
-  },
-);
+    const payload = sanitizeValue(req.body);
+    const role = payload.role === "admin" ? "admin" : "member";
+    await query(
+      `UPDATE group_members SET role = $3
+         WHERE group_id = $1 AND user_id = $2 AND role <> 'owner'`,
+      [req.params.groupId, req.params.userId, role]
+    );
+    res.json({ success: true });
+  } catch (error) {
+    next(error);
+  }
+});
 
-workspaceRouter.delete(
-  "/groups/:groupId/members/:userId",
-  async (req, res, next) => {
-    try {
-      await requireGroupAdmin(req.params.groupId, req.user!.id);
-      await query(
-        `DELETE FROM group_members
+workspaceRouter.delete("/groups/:groupId/members/:userId", async (req, res, next) => {
+  try {
+    await requireGroupAdmin(req.params.groupId, req.user!.id);
+    await query(
+      `DELETE FROM group_members
          WHERE group_id = $1 AND user_id = $2 AND role <> 'owner'`,
-        [req.params.groupId, req.params.userId],
-      );
-      res.json({ success: true });
-    } catch (error) {
-      next(error);
-    }
-  },
-);
+      [req.params.groupId, req.params.userId]
+    );
+    res.json({ success: true });
+  } catch (error) {
+    next(error);
+  }
+});
 
 workspaceRouter.patch("/profile", async (req, res, next) => {
   try {
@@ -905,7 +906,7 @@ workspaceRouter.patch("/profile", async (req, res, next) => {
         payload.timezone ? String(payload.timezone).slice(0, 80) : null,
         payload.avatarUrl || null,
         JSON.stringify(preferences),
-      ],
+      ]
     );
     const row: any = user.rows[0];
     res.json({
@@ -931,7 +932,7 @@ workspaceRouter.post("/channels", async (req, res, next) => {
       `SELECT g.id FROM groups g
        LEFT JOIN group_members gm ON gm.group_id = g.id AND gm.user_id = $2
        WHERE g.id = $1 AND (g.user_id = $2 OR gm.role IN ('owner', 'admin'))`,
-      [groupId, req.user!.id],
+      [groupId, req.user!.id]
     );
     if (!group.rowCount) {
       res.status(404).json({ error: "Group not found." });
@@ -954,17 +955,15 @@ workspaceRouter.post("/channels", async (req, res, next) => {
        ON CONFLICT (id) DO UPDATE
        SET name = EXCLUDED.name, description = EXCLUDED.description
        RETURNING id, group_id, name, description, created_by, created_at`,
-      [id, groupId, name, payload.description || null, req.user!.id],
+      [id, groupId, name, payload.description || null, req.user!.id]
     );
     await query(
       `INSERT INTO channel_members (channel_id, user_id)
        VALUES ($1, $2)
        ON CONFLICT (channel_id, user_id) DO NOTHING`,
-      [id, req.user!.id],
+      [id, req.user!.id]
     );
-    res
-      .status(201)
-      .json(mapChannel({ ...result.rows[0], member_ids: [req.user!.id] }));
+    res.status(201).json(mapChannel({ ...result.rows[0], member_ids: [req.user!.id] }));
   } catch (error) {
     next(error);
   }
@@ -978,7 +977,7 @@ workspaceRouter.post("/channels/:channelId/join", async (req, res, next) => {
        JOIN groups g ON g.id = c.group_id
        LEFT JOIN group_members gm ON gm.group_id = g.id AND gm.user_id = $2
        WHERE c.id = $1 AND (g.user_id = $2 OR g.user_id IS NULL OR gm.user_id IS NOT NULL)`,
-      [channelId, req.user!.id],
+      [channelId, req.user!.id]
     );
     if (!channel.rowCount) {
       res.status(404).json({ error: "Channel not found." });
@@ -988,7 +987,7 @@ workspaceRouter.post("/channels/:channelId/join", async (req, res, next) => {
       `INSERT INTO channel_members (channel_id, user_id, last_read_at)
        VALUES ($1, $2, NOW())
        ON CONFLICT (channel_id, user_id) DO UPDATE SET last_read_at = NOW()`,
-      [channelId, req.user!.id],
+      [channelId, req.user!.id]
     );
     res.json({ success: true });
   } catch (error) {
@@ -1002,7 +1001,7 @@ workspaceRouter.post("/channels/:channelId/read", async (req, res, next) => {
       `INSERT INTO channel_members (channel_id, user_id, last_read_at)
        VALUES ($1, $2, NOW())
        ON CONFLICT (channel_id, user_id) DO UPDATE SET last_read_at = NOW()`,
-      [req.params.channelId, req.user!.id],
+      [req.params.channelId, req.user!.id]
     );
     res.json({ success: true });
   } catch (error) {
@@ -1024,7 +1023,7 @@ workspaceRouter.get("/goals", async (req, res, next) => {
        FROM goals
        WHERE goals.user_id = $1
        ORDER BY goals.created_at DESC`,
-      [req.user!.id],
+      [req.user!.id]
     );
     res.json(goals.rows.map(mapGoalRow));
   } catch (error) {
@@ -1042,31 +1041,19 @@ workspaceRouter.post("/goals", async (req, res, next) => {
     if (!title) {
       throw new AppError(400, "Goal title is required.", "GOAL_TITLE_REQUIRED");
     }
-    const description = payload.description
-      ? String(payload.description).slice(0, 1000)
-      : null;
-    const targetDate = payload.targetDate
-      ? String(payload.targetDate).trim()
-      : null;
+    const description = payload.description ? String(payload.description).slice(0, 1000) : null;
+    const targetDate = payload.targetDate ? String(payload.targetDate).trim() : null;
     const progress = Number.isFinite(Number(payload.progress))
       ? Math.min(100, Math.max(0, Number(payload.progress)))
       : 0;
     const linkedTaskIds = Array.isArray(payload.linkedTaskIds)
       ? payload.linkedTaskIds.map(String)
       : [];
-    const milestones = Array.isArray(payload.milestones)
-      ? payload.milestones
-      : [];
+    const milestones = Array.isArray(payload.milestones) ? payload.milestones : [];
 
-    const existing = await query("SELECT user_id FROM goals WHERE id = $1", [
-      id,
-    ]);
+    const existing = await query("SELECT user_id FROM goals WHERE id = $1", [id]);
     if (existing.rowCount && existing.rows[0].user_id !== req.user!.id) {
-      throw new AppError(
-        403,
-        "Goal belongs to a different user.",
-        "FORBIDDEN_GOAL_UPDATE",
-      );
+      throw new AppError(403, "Goal belongs to a different user.", "FORBIDDEN_GOAL_UPDATE");
     }
 
     const result = await query(
@@ -1092,7 +1079,7 @@ workspaceRouter.post("/goals", async (req, res, next) => {
         linkedTaskIds,
         milestones,
         { ...payload, id },
-      ],
+      ]
     );
 
     res.json(mapGoalRow(result.rows[0]));
@@ -1111,21 +1098,15 @@ workspaceRouter.put("/goals/:goalId", async (req, res, next) => {
     if (!title) {
       throw new AppError(400, "Goal title is required.", "GOAL_TITLE_REQUIRED");
     }
-    const description = payload.description
-      ? String(payload.description).slice(0, 1000)
-      : null;
-    const targetDate = payload.targetDate
-      ? String(payload.targetDate).trim()
-      : null;
+    const description = payload.description ? String(payload.description).slice(0, 1000) : null;
+    const targetDate = payload.targetDate ? String(payload.targetDate).trim() : null;
     const progress = Number.isFinite(Number(payload.progress))
       ? Math.min(100, Math.max(0, Number(payload.progress)))
       : 0;
     const linkedTaskIds = Array.isArray(payload.linkedTaskIds)
       ? payload.linkedTaskIds.map(String)
       : [];
-    const milestones = Array.isArray(payload.milestones)
-      ? payload.milestones
-      : [];
+    const milestones = Array.isArray(payload.milestones) ? payload.milestones : [];
 
     const result = await query(
       `UPDATE goals
@@ -1149,7 +1130,7 @@ workspaceRouter.put("/goals/:goalId", async (req, res, next) => {
         { ...payload, id: goalId },
         goalId,
         req.user!.id,
-      ],
+      ]
     );
 
     if (!result.rowCount) {
@@ -1165,10 +1146,10 @@ workspaceRouter.put("/goals/:goalId", async (req, res, next) => {
 workspaceRouter.delete("/goals/:goalId", async (req, res, next) => {
   try {
     const goalId = String(req.params.goalId);
-    const result = await query(
-      "DELETE FROM goals WHERE id = $1 AND user_id = $2",
-      [goalId, req.user!.id],
-    );
+    const result = await query("DELETE FROM goals WHERE id = $1 AND user_id = $2", [
+      goalId,
+      req.user!.id,
+    ]);
     if (result.rowCount === 0) {
       throw new AppError(404, "Goal not found.", "GOAL_NOT_FOUND");
     }
@@ -1187,12 +1168,10 @@ workspaceRouter.post("/chat/messages", async (req, res, next) => {
        JOIN groups g ON g.id = c.group_id
        LEFT JOIN group_members gm ON gm.group_id = g.id AND gm.user_id = $2
        WHERE c.id = $1 AND (g.user_id = $2 OR g.user_id IS NULL OR gm.user_id IS NOT NULL)`,
-      [channelId, req.user!.id],
+      [channelId, req.user!.id]
     );
     if (!channel.rowCount) {
-      res
-        .status(400)
-        .json({ error: "Select a valid channel before sending a message." });
+      res.status(400).json({ error: "Select a valid channel before sending a message." });
       return;
     }
 
@@ -1205,9 +1184,7 @@ workspaceRouter.post("/chat/messages", async (req, res, next) => {
       userName: req.user!.name,
       userAvatar: payload.userAvatar || req.user!.avatarUrl || undefined,
       content: String(payload.content || "").slice(0, 5000),
-      attachments: Array.isArray(payload.attachments)
-        ? payload.attachments
-        : [],
+      attachments: Array.isArray(payload.attachments) ? payload.attachments : [],
       taskRefId: payload.taskRefId || undefined,
       createdAt,
       updatedAt: createdAt,
@@ -1234,7 +1211,7 @@ workspaceRouter.post("/chat/messages", async (req, res, next) => {
           taskRefId: finalMessage.taskRefId,
         },
         finalMessage.createdAt,
-      ],
+      ]
     );
 
     await query(
@@ -1257,7 +1234,7 @@ workspaceRouter.post("/chat/messages", async (req, res, next) => {
         },
         createdAt,
         createdAt,
-      ],
+      ]
     );
 
     res.status(201).json(finalMessage);
@@ -1279,7 +1256,7 @@ workspaceRouter.get("/chat/messages", async (req, res, next) => {
        JOIN groups g ON g.id = c.group_id
        LEFT JOIN group_members gm ON gm.group_id = g.id AND gm.user_id = $2
        WHERE c.id = $1 AND (g.user_id = $2 OR g.user_id IS NULL OR gm.user_id IS NOT NULL)`,
-      [channelId, req.user!.id],
+      [channelId, req.user!.id]
     );
     if (!channel.rowCount) {
       res.status(403).json({ error: "Access denied" });
@@ -1327,7 +1304,7 @@ workspaceRouter.get("/chat/messages", async (req, res, next) => {
        WHERE msg.channel_id = $1
        ORDER BY msg.created_at ASC
        LIMIT 100`,
-      [channelId],
+      [channelId]
     );
 
     res.json(messages.rows.map(mapChatMessageRow));
@@ -1340,13 +1317,9 @@ workspaceRouter.delete("/channels/:channelId", async (req, res, next) => {
   try {
     const { channelId } = req.params;
 
-    await query("DELETE FROM channel_messages WHERE channel_id = $1", [
-      channelId,
-    ]);
+    await query("DELETE FROM channel_messages WHERE channel_id = $1", [channelId]);
 
-    await query("DELETE FROM channel_members WHERE channel_id = $1", [
-      channelId,
-    ]);
+    await query("DELETE FROM channel_members WHERE channel_id = $1", [channelId]);
 
     await query("DELETE FROM channels WHERE id = $1", [channelId]);
 
@@ -1361,19 +1334,14 @@ workspaceRouter.delete("/groups/:groupId", async (req, res, next) => {
   try {
     const { groupId } = req.params;
 
-    const channels = await query(
-      "SELECT id FROM channels WHERE group_id = $1",
-      [groupId],
-    );
+    await requireGroupRole(groupId, req.user!.id, "owner");
+
+    const channels = await query("SELECT id FROM channels WHERE group_id = $1", [groupId]);
 
     for (const channel of channels.rows) {
-      await query("DELETE FROM channel_messages WHERE channel_id = $1", [
-        channel.id,
-      ]);
+      await query("DELETE FROM channel_messages WHERE channel_id = $1", [channel.id]);
 
-      await query("DELETE FROM channel_members WHERE channel_id = $1", [
-        channel.id,
-      ]);
+      await query("DELETE FROM channel_members WHERE channel_id = $1", [channel.id]);
     }
 
     await query("DELETE FROM channels WHERE group_id = $1", [groupId]);
@@ -1394,28 +1362,43 @@ workspaceRouter.delete("/chat/messages/:messageId", async (req, res, next) => {
     const messageId = req.params.messageId;
 
     const channelMessage = await query(
-      `SELECT sender_id FROM channel_messages WHERE id = $1`,
-      [messageId],
+      `SELECT sender_id, channel_id FROM channel_messages WHERE id = $1`,
+      [messageId]
     );
 
-    const chatMessage = await query(
-      `SELECT user_id FROM chat_messages WHERE id = $1`,
-      [messageId],
-    );
+    const chatMessage = await query(`SELECT user_id, channel_id FROM chat_messages WHERE id = $1`, [
+      messageId,
+    ]);
 
     if (!channelMessage.rowCount && !chatMessage.rowCount) {
       res.status(404).json({ error: "Message not found" });
       return;
     }
 
-    const senderId = channelMessage.rowCount
-      ? channelMessage.rows[0].sender_id
-      : null;
+    const senderId = channelMessage.rowCount ? channelMessage.rows[0].sender_id : null;
     const userId = chatMessage.rowCount ? chatMessage.rows[0].user_id : null;
+    const channelId = channelMessage.rowCount
+      ? channelMessage.rows[0].channel_id
+      : chatMessage.rows[0].channel_id;
 
-    if (senderId !== req.user!.id && userId !== req.user!.id) {
-      res.status(403).json({ error: "You can only delete your own messages" });
-      return;
+    // Check if user is the message sender or has admin/owner role
+    const isSender = senderId === req.user!.id || userId === req.user!.id;
+
+    if (!isSender) {
+      // Get group_id from channel to check role
+      const channel = await query(`SELECT group_id FROM channels WHERE id = $1`, [channelId]);
+
+      if (channel.rowCount) {
+        const groupId = channel.rows[0].group_id;
+        const role = await getGroupRole(groupId, req.user!.id);
+        if (!canAdmin(role)) {
+          res.status(403).json({ error: "You can only delete your own messages" });
+          return;
+        }
+      } else {
+        res.status(403).json({ error: "You can only delete your own messages" });
+        return;
+      }
     }
 
     await query("DELETE FROM chat_messages WHERE id = $1", [messageId]);
@@ -1430,6 +1413,47 @@ workspaceRouter.delete("/chat/messages/:messageId", async (req, res, next) => {
 workspaceRouter.patch("/chat/messages/:messageId", async (req, res, next) => {
   try {
     const { content } = req.body;
+    const messageId = req.params.messageId;
+
+    const channelMessage = await query(
+      `SELECT sender_id, channel_id FROM channel_messages WHERE id = $1`,
+      [messageId]
+    );
+
+    const chatMessage = await query(`SELECT user_id, channel_id FROM chat_messages WHERE id = $1`, [
+      messageId,
+    ]);
+
+    if (!channelMessage.rowCount && !chatMessage.rowCount) {
+      res.status(404).json({ error: "Message not found" });
+      return;
+    }
+
+    const senderId = channelMessage.rowCount ? channelMessage.rows[0].sender_id : null;
+    const userId = chatMessage.rowCount ? chatMessage.rows[0].user_id : null;
+    const channelId = channelMessage.rowCount
+      ? channelMessage.rows[0].channel_id
+      : chatMessage.rows[0].channel_id;
+
+    // Check if user is the message sender or has admin/owner role
+    const isSender = senderId === req.user!.id || userId === req.user!.id;
+
+    if (!isSender) {
+      // Get group_id from channel to check role
+      const channel = await query(`SELECT group_id FROM channels WHERE id = $1`, [channelId]);
+
+      if (channel.rowCount) {
+        const groupId = channel.rows[0].group_id;
+        const role = await getGroupRole(groupId, req.user!.id);
+        if (!canAdmin(role)) {
+          res.status(403).json({ error: "You can only edit your own messages" });
+          return;
+        }
+      } else {
+        res.status(403).json({ error: "You can only edit your own messages" });
+        return;
+      }
+    }
 
     await query(
       `
@@ -1438,7 +1462,7 @@ workspaceRouter.patch("/chat/messages/:messageId", async (req, res, next) => {
             updated_at = NOW()
         WHERE id = $2
         `,
-      [content, req.params.messageId],
+      [content, messageId]
     );
 
     await query(
@@ -1448,7 +1472,7 @@ workspaceRouter.patch("/chat/messages/:messageId", async (req, res, next) => {
             updated_at = NOW()
         WHERE id = $2
         `,
-      [content, req.params.messageId],
+      [content, messageId]
     );
 
     res.json({ success: true });

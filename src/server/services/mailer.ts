@@ -6,4 +6,8 @@ export const resend = config.resendApiKey
   ? new Resend(config.resendApiKey)
   : null;
 
-export const emailFrom = config.smtp.from || "NewDay <onboarding@resend.dev>";
+export const emailFrom =
+  config.resendApiKey && (!process.env.SMTP_FROM || config.smtp.from.includes("newday.local"))
+    ? "NewDay <onboarding@resend.dev>"
+    : (config.smtp.from || "NewDay <onboarding@resend.dev>");
+

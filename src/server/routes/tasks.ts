@@ -9,12 +9,7 @@ export const tasksRouter = Router();
 
 tasksRouter.use(requireAuth);
 
-const taskStatusSchema = z.enum([
-  "pending",
-  "in_progress",
-  "completed",
-  "overdue",
-]);
+const taskStatusSchema = z.enum(["pending", "in_progress", "completed", "overdue"]);
 const taskPrioritySchema = z.enum(["low", "medium", "high", "urgent"]);
 
 const createTaskSchema = z
@@ -35,6 +30,7 @@ type TaskRow = {
   user_id: string;
   title: string;
   description: string | null;
+  notes: string | null;
   status: string;
   priority: string;
   due_date: Date | string | null;
@@ -52,6 +48,7 @@ export function mapTask(row: TaskRow) {
     assigneeId: (row.payload.assigneeId as string | undefined) || row.user_id,
     title: row.title,
     description: row.description || undefined,
+    notes: row.notes || (row.payload.notes as string | undefined) || undefined,
     status: row.status,
     priority: row.priority,
     dueDate: row.due_date ? new Date(row.due_date).toISOString() : undefined,
@@ -78,9 +75,7 @@ function mapSubtask(row: SubtaskRow) {
     parentTaskId: row.parent_task_id,
     title: row.title,
     isCompleted: Boolean(row.is_completed),
-    createdAt: row.created_at
-      ? new Date(row.created_at).toISOString()
-      : undefined,
+    createdAt: row.created_at ? new Date(row.created_at).toISOString() : undefined,
     sortOrder: Number(row.sort_order || 0),
   };
 }
@@ -92,7 +87,7 @@ async function fetchSubtasksForTaskIds(taskIds: string[]) {
      FROM subtasks
      WHERE parent_task_id = ANY($1)
      ORDER BY sort_order ASC`,
-    [taskIds],
+    [taskIds]
   );
   const map: Record<string, any[]> = {};
   for (const row of res.rows) {
@@ -108,7 +103,7 @@ tasksRouter.get("/", async (req, res, next) => {
       `SELECT * FROM tasks
        WHERE user_id = $1
        ORDER BY created_at DESC`,
-      [req.user!.id],
+      [req.user!.id]
     );
     const taskRows = result.rows;
     const ids = taskRows.map((r) => r.id);
@@ -160,7 +155,7 @@ tasksRouter.post("/", async (req, res, next) => {
         body.dueDate || null,
         payload,
         body.tags || [],
-      ],
+      ]
     );
 
     res.status(201).json(mapTask(result.rows[0]));
@@ -188,7 +183,7 @@ tasksRouter.get("/:id/subtasks", async (req, res, next) => {
        FROM subtasks
        WHERE parent_task_id = $1
        ORDER BY sort_order ASC`,
-      [taskId],
+      [taskId]
     );
     res.json(result.rows.map(mapSubtask));
   } catch (error) {
@@ -204,11 +199,11 @@ tasksRouter.post("/:id/subtasks", async (req, res, next) => {
     await query(
       `INSERT INTO subtasks (id, parent_task_id, title, sort_order)
        VALUES ($1, $2, $3, $4)`,
-      [id, taskId, body.title, body.sortOrder || 0],
+      [id, taskId, body.title, body.sortOrder || 0]
     );
     const created = await query<SubtaskRow>(
       `SELECT id, parent_task_id, title, is_completed, created_at, sort_order FROM subtasks WHERE id = $1`,
-      [id],
+      [id]
     );
     res.status(201).json(mapSubtask(created.rows[0]));
   } catch (error) {
@@ -224,7 +219,7 @@ tasksRouter.put("/:id/subtasks/:subtaskId", async (req, res, next) => {
 
     const existing = await query<SubtaskRow>(
       `SELECT * FROM subtasks WHERE id = $1 AND parent_task_id = $2`,
-      [subId, taskId],
+      [subId, taskId]
     );
     if (!existing.rowCount) {
       throw new AppError(404, "Subtask not found.", "SUBTASK_NOT_FOUND");
@@ -233,23 +228,19 @@ tasksRouter.put("/:id/subtasks/:subtaskId", async (req, res, next) => {
     const updated = {
       title: body.title ?? existing.rows[0].title,
       is_completed:
-        typeof body.isCompleted !== "undefined"
-          ? body.isCompleted
-          : existing.rows[0].is_completed,
+        typeof body.isCompleted !== "undefined" ? body.isCompleted : existing.rows[0].is_completed,
       sort_order:
-        typeof body.sortOrder !== "undefined"
-          ? body.sortOrder
-          : existing.rows[0].sort_order,
+        typeof body.sortOrder !== "undefined" ? body.sortOrder : existing.rows[0].sort_order,
     };
 
     await query(
       `UPDATE subtasks SET title = $1, is_completed = $2, sort_order = $3 WHERE id = $4 AND parent_task_id = $5`,
-      [updated.title, updated.is_completed, updated.sort_order, subId, taskId],
+      [updated.title, updated.is_completed, updated.sort_order, subId, taskId]
     );
 
     const result = await query<SubtaskRow>(
       `SELECT id, parent_task_id, title, is_completed, created_at, sort_order FROM subtasks WHERE id = $1`,
-      [subId],
+      [subId]
     );
     res.json(mapSubtask(result.rows[0]));
   } catch (error) {
@@ -261,10 +252,10 @@ tasksRouter.delete("/:id/subtasks/:subtaskId", async (req, res, next) => {
   try {
     const taskId = req.params.id;
     const subId = req.params.subtaskId;
-    const result = await query(
-      "DELETE FROM subtasks WHERE id = $1 AND parent_task_id = $2",
-      [subId, taskId],
-    );
+    const result = await query("DELETE FROM subtasks WHERE id = $1 AND parent_task_id = $2", [
+      subId,
+      taskId,
+    ]);
     if (!result.rowCount) {
       throw new AppError(404, "Subtask not found.", "SUBTASK_NOT_FOUND");
     }
@@ -277,10 +268,10 @@ tasksRouter.delete("/:id/subtasks/:subtaskId", async (req, res, next) => {
 tasksRouter.put("/:id", async (req, res, next) => {
   try {
     const body = updateTaskSchema.parse(sanitizeValue(req.body));
-    const current = await query<TaskRow>(
-      "SELECT * FROM tasks WHERE id = $1 AND user_id = $2",
-      [req.params.id, req.user!.id],
-    );
+    const current = await query<TaskRow>("SELECT * FROM tasks WHERE id = $1 AND user_id = $2", [
+      req.params.id,
+      req.user!.id,
+    ]);
 
     if (!current.rowCount) {
       throw new AppError(404, "Task not found.", "TASK_NOT_FOUND");
@@ -291,8 +282,7 @@ tasksRouter.put("/:id", async (req, res, next) => {
       ...existing.payload,
       ...body,
       id: existing.id,
-      assigneeId:
-        body.assigneeId || existing.payload.assigneeId || req.user!.id,
+      assigneeId: body.assigneeId || existing.payload.assigneeId || req.user!.id,
     };
 
     const result = await query<TaskRow>(
@@ -317,7 +307,7 @@ tasksRouter.put("/:id", async (req, res, next) => {
         (body.tags ?? (existing.payload.tags as string[])) || [],
         req.params.id,
         req.user!.id,
-      ],
+      ]
     );
 
     res.json(mapTask(result.rows[0]));
@@ -328,16 +318,50 @@ tasksRouter.put("/:id", async (req, res, next) => {
 
 tasksRouter.delete("/:id", async (req, res, next) => {
   try {
-    const result = await query(
-      "DELETE FROM tasks WHERE id = $1 AND user_id = $2",
-      [req.params.id, req.user!.id],
-    );
+    const result = await query("DELETE FROM tasks WHERE id = $1 AND user_id = $2", [
+      req.params.id,
+      req.user!.id,
+    ]);
 
     if (!result.rowCount) {
       throw new AppError(404, "Task not found.", "TASK_NOT_FOUND");
     }
 
     res.json({ success: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
+tasksRouter.patch("/:id/notes", async (req, res, next) => {
+  try {
+    const { notes } = req.body;
+    const current = await query<TaskRow>("SELECT * FROM tasks WHERE id = $1 AND user_id = $2", [
+      req.params.id,
+      req.user!.id,
+    ]);
+
+    if (!current.rowCount) {
+      throw new AppError(404, "Task not found.", "TASK_NOT_FOUND");
+    }
+
+    const existing = current.rows[0];
+    const mergedPayload = {
+      ...existing.payload,
+      notes,
+    };
+
+    const result = await query<TaskRow>(
+      `UPDATE tasks
+       SET notes = $1,
+           payload = $2,
+           updated_at = NOW()
+       WHERE id = $3 AND user_id = $4
+       RETURNING *`,
+      [notes || null, mergedPayload, req.params.id, req.user!.id]
+    );
+
+    res.json(mapTask(result.rows[0]));
   } catch (error) {
     next(error);
   }

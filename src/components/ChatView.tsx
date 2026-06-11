@@ -1,13 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { socket } from "../lib/socket";
-import {
-  ChatChannel,
-  ChatMessageWithExtras,
-  Group,
-  MessageAttachment,
-  User,
-  Task,
-} from "../types";
+import { ChatChannel, ChatMessageWithExtras, Group, MessageAttachment, User, Task } from "../types";
 import {
   Send,
   Hash,
@@ -29,9 +22,7 @@ interface ChatViewProps {
   channels: ChatChannel[];
   setChannels: React.Dispatch<React.SetStateAction<ChatChannel[]>>;
   chatMessages: ChatMessageWithExtras[];
-  setChatMessages: React.Dispatch<
-    React.SetStateAction<ChatMessageWithExtras[]>
-  >;
+  setChatMessages: React.Dispatch<React.SetStateAction<ChatMessageWithExtras[]>>;
   currentUser: User | null;
   users: User[];
   tasks: Task[];
@@ -66,15 +57,16 @@ export default function ChatView({
     return localStorage.getItem("newday_active_group") || "group_personal";
   });
 
+  // Get current user's role in the active group
+  const currentUserRole = groups.find((g) => g.id === activeGroupId)?.role || "member";
+
   const [loadingMessages, setLoadingMessages] = useState(false);
 
   const [newMessageText, setNewMessageText] = useState("");
   const [newChannelName, setNewChannelName] = useState("");
   const [newChannelDescription, setNewChannelDescription] = useState("");
   const [isCreatingChannel, setIsCreatingChannel] = useState(false);
-  const [pendingAttachments, setPendingAttachments] = useState<
-    MessageAttachment[]
-  >([]);
+  const [pendingAttachments, setPendingAttachments] = useState<MessageAttachment[]>([]);
   const [typingUsers, setTypingUsers] = useState<Record<string, string>>({});
   const [presence, setPresence] = useState<
     Record<string, { status: "online" | "offline"; lastSeenAt: string }>
@@ -88,6 +80,9 @@ export default function ChatView({
 
   const [editingMessageId, setEditingMessageId] = useState("");
   const [editingMessageContent, setEditingMessageContent] = useState("");
+
+  // AI Chat Assistant state
+  const [isAiTyping, setIsAiTyping] = useState(false);
 
   // Mobile view state
   const [mobileView, setMobileView] = useState<"channels" | "chat">("channels");
@@ -110,8 +105,7 @@ export default function ChatView({
 
   useEffect(() => {
     if (chatContainerRef.current) {
-      chatContainerRef.current.scrollTop =
-        chatContainerRef.current.scrollHeight;
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
   }, [chatMessages, activeChannelId]);
 
@@ -128,22 +122,18 @@ export default function ChatView({
   useEffect(() => {
     if (!groups.length || !channels.length) return;
 
-    const selectedGroupExists = groups.some(
-      (group) => group.id === activeGroupId,
-    );
+    const selectedGroupExists = groups.some((group) => group.id === activeGroupId);
     if (!selectedGroupExists) {
       setActiveGroupId(groups[0].id);
       return;
     }
 
     const currentActiveChannel = channels.find(
-      (channel) =>
-        channel.id === activeChannelId && channel.groupId === activeGroupId,
+      (channel) => channel.id === activeChannelId && channel.groupId === activeGroupId
     );
     if (!currentActiveChannel) {
       const fallbackChannel =
-        channels.find((channel) => channel.groupId === activeGroupId) ||
-        channels[0];
+        channels.find((channel) => channel.groupId === activeGroupId) || channels[0];
       if (fallbackChannel) {
         setActiveChannelId(fallbackChannel.id);
       }
@@ -160,15 +150,11 @@ export default function ChatView({
     if (!activeChannelId) return;
 
     socket.emit("join_channel", activeChannelId);
-    apiFetch(`/api/channels/${activeChannelId}/read`, { method: "POST" }).catch(
-      () => undefined,
-    );
+    apiFetch(`/api/channels/${activeChannelId}/read`, { method: "POST" }).catch(() => undefined);
     setChannels((prev) =>
       prev.map((channel) =>
-        channel.id === activeChannelId
-          ? { ...channel, unreadCount: 0 }
-          : channel,
-      ),
+        channel.id === activeChannelId ? { ...channel, unreadCount: 0 } : channel
+      )
     );
 
     // On mobile, switch to chat view when channel is selected
@@ -193,19 +179,15 @@ export default function ChatView({
     const loadMessages = async () => {
       try {
         setLoadingMessages(true);
-        const response = await apiFetch(
-          `/api/chat/messages?channelId=${activeChannelId}`,
-        );
+        const response = await apiFetch(`/api/chat/messages?channelId=${activeChannelId}`);
         if (response.ok) {
           const messages = await response.json();
           setChatMessages((prev) => {
             const existingIds = new Set(prev.map((m) => m.id));
             const newMessages = messages.filter(
-              (m: ChatMessageWithExtras) => !existingIds.has(m.id),
+              (m: ChatMessageWithExtras) => !existingIds.has(m.id)
             );
-            const filtered = prev.filter(
-              (m) => m.channelId === activeChannelId,
-            );
+            const filtered = prev.filter((m) => m.channelId === activeChannelId);
             return [...filtered, ...newMessages];
           });
         }
@@ -220,14 +202,11 @@ export default function ChatView({
   }, [activeChannelId, setChatMessages]);
 
   useEffect(() => {
-    const firstChannel = channels.find(
-      (channel) => channel.groupId === activeGroupId,
-    );
+    const firstChannel = channels.find((channel) => channel.groupId === activeGroupId);
     if (
       firstChannel &&
       !channels.some(
-        (channel) =>
-          channel.id === activeChannelId && channel.groupId === activeGroupId,
+        (channel) => channel.id === activeChannelId && channel.groupId === activeGroupId
       )
     ) {
       setActiveChannelId(firstChannel.id);
@@ -243,17 +222,15 @@ export default function ChatView({
   useEffect(() => {
     socket.on("receive_message", (message) => {
       setChatMessages((prev) =>
-        prev.some((existing) => existing.id === message.id)
-          ? prev
-          : [...prev, message],
+        prev.some((existing) => existing.id === message.id) ? prev : [...prev, message]
       );
       if (message.channelId !== activeChannelId) {
         setChannels((prev) =>
           prev.map((channel) =>
             channel.id === message.channelId
               ? { ...channel, unreadCount: (channel.unreadCount || 0) + 1 }
-              : channel,
-          ),
+              : channel
+          )
         );
       }
     });
@@ -307,6 +284,12 @@ export default function ChatView({
 
     const taskReference = selectedTaskRefId || undefined;
 
+    // Check if message is an AI command
+    const isAiCommand = messageContent.startsWith("@ai") || messageContent.startsWith("/ai");
+    const aiMessage = isAiCommand
+      ? messageContent.replace(/^@ai|^\/ai/, "").trim()
+      : messageContent;
+
     /*
     ========================================
     FAST UI CLEAR
@@ -317,6 +300,48 @@ export default function ChatView({
     setSelectedTaskRefId("");
     setIsSearchingTask(false);
 
+    if (isAiCommand) {
+      // Handle AI chat assistant
+      setIsAiTyping(true);
+
+      try {
+        const response = await apiFetch("/api/ai/chat-assistant", {
+          method: "POST",
+          body: JSON.stringify({
+            message: aiMessage,
+            channelId: activeChannelId,
+            recentMessages: chatMessages,
+          }),
+        });
+
+        if (response.ok) {
+          const aiResponse = await response.json();
+          const aiMsg: ChatMessageWithExtras = {
+            id: `ai_${Date.now()}`,
+            channelId: activeChannelId,
+            userId: "ai-bot",
+            userName: "NewDay AI",
+            userAvatar: "https://via.placeholder.com/100",
+            content: aiResponse.reply,
+            createdAt: new Date().toISOString(),
+            isSystem: false,
+          };
+
+          setChatMessages((prev) => [...prev, aiMsg]);
+        } else {
+          const errorText = await response.text();
+          console.error("AI assistant failed:", errorText);
+          alert(`AI assistant failed: ${errorText}`);
+        }
+      } catch (err) {
+        console.error("AI assistant error:", err);
+        alert("AI assistant error: Unable to connect");
+      } finally {
+        setIsAiTyping(false);
+      }
+      return;
+    }
+
     try {
       const response = await apiFetch("/api/chat/messages", {
         method: "POST",
@@ -326,7 +351,7 @@ export default function ChatView({
           content: messageContent,
           taskRefId: taskReference,
           attachments: pendingAttachments.filter(
-            (attachment) => attachment.uploadStatus === "uploaded",
+            (attachment) => attachment.uploadStatus === "uploaded"
           ),
         }),
       });
@@ -378,9 +403,7 @@ export default function ChatView({
       if (!res.ok) return;
       const channel = await res.json();
       setChannels((prev) =>
-        prev.some((existing) => existing.id === channel.id)
-          ? prev
-          : [...prev, channel],
+        prev.some((existing) => existing.id === channel.id) ? prev : [...prev, channel]
       );
       setActiveChannelId(channel.id);
       setNewChannelName("");
@@ -412,11 +435,7 @@ export default function ChatView({
       "application/vnd.openxmlformats-officedocument",
       "text/",
     ];
-    if (
-      file.size > 5 * 1024 * 1024 ||
-      !allowed.some((type) => file.type.startsWith(type))
-    )
-      return;
+    if (file.size > 5 * 1024 * 1024 || !allowed.some((type) => file.type.startsWith(type))) return;
 
     const localId = `upload_${Date.now()}`;
     const optimistic: MessageAttachment = {
@@ -434,16 +453,11 @@ export default function ChatView({
     const reader = new FileReader();
     reader.onprogress = (event) => {
       if (!event.lengthComputable) return;
-      const uploadProgress = Math.min(
-        90,
-        Math.round((event.loaded / event.total) * 90),
-      );
+      const uploadProgress = Math.min(90, Math.round((event.loaded / event.total) * 90));
       setPendingAttachments((prev) =>
         prev.map((attachment) =>
-          attachment.id === localId
-            ? { ...attachment, uploadProgress }
-            : attachment,
-        ),
+          attachment.id === localId ? { ...attachment, uploadProgress } : attachment
+        )
       );
     };
     reader.onload = async () => {
@@ -462,16 +476,14 @@ export default function ChatView({
           prev.map((attachment) =>
             attachment.id === localId
               ? { ...uploaded, uploadProgress: 100, uploadStatus: "uploaded" }
-              : attachment,
-          ),
+              : attachment
+          )
         );
       } catch {
         setPendingAttachments((prev) =>
           prev.map((attachment) =>
-            attachment.id === localId
-              ? { ...attachment, uploadStatus: "failed" }
-              : attachment,
-          ),
+            attachment.id === localId ? { ...attachment, uploadStatus: "failed" } : attachment
+          )
         );
       }
     };
@@ -513,9 +525,7 @@ export default function ChatView({
         return;
       }
 
-      setChannels((prev) =>
-        prev.filter((channel) => channel.groupId !== groupId),
-      );
+      setChannels((prev) => prev.filter((channel) => channel.groupId !== groupId));
 
       if (activeGroupId === groupId) {
         const remainingGroup = groups.find((g) => g.id !== groupId);
@@ -544,9 +554,7 @@ export default function ChatView({
         return;
       }
 
-      setChatMessages((prev) =>
-        prev.filter((message) => message.id !== messageId),
-      );
+      setChatMessages((prev) => prev.filter((message) => message.id !== messageId));
     } catch (err) {
       console.error("Error deleting message:", err);
       alert(`Error deleting message: ${err}`);
@@ -578,8 +586,8 @@ export default function ChatView({
                 content,
                 updatedAt: new Date().toISOString(),
               }
-            : message,
-        ),
+            : message
+        )
       );
     } catch (err) {
       console.error("Error editing message:", err);
@@ -604,11 +612,8 @@ export default function ChatView({
   */
 
   const currentChannel = channels.find((c) => c.id === activeChannelId);
-  const visibleChannels = channels.filter(
-    (channel) => channel.groupId === activeGroupId,
-  );
-  const displayChannels =
-    visibleChannels.length > 0 ? visibleChannels : channels;
+  const visibleChannels = channels.filter((channel) => channel.groupId === activeGroupId);
+  const displayChannels = visibleChannels.length > 0 ? visibleChannels : channels;
   const currentGroup = groups.find((group) => group.id === activeGroupId);
   const typingNames = Object.values(typingUsers);
 
@@ -629,7 +634,7 @@ export default function ChatView({
   };
 
   return (
-    <div className="glass-card rounded-2xl overflow-hidden flex h-[560px] text-left animate-fadeIn relative w-full sm:w-[95vw] md:w-[800px] lg:w-[900px]">
+    <div className="glass-card rounded-2xl overflow-hidden flex h-[600px] md:h-[750px] text-left animate-fadeIn relative w-full">
       {/* LEFT SIDEBAR - CHANNELS LIST */}
 
       <div
@@ -697,9 +702,7 @@ export default function ChatView({
                     <span className="flex items-center gap-1.5 min-w-0">
                       <Hash size={12} className="text-gray-450 flex-shrink-0" />
 
-                      <span className="truncate">
-                        {chan.name.replace(/^[^\w]*/, "")}
-                      </span>
+                      <span className="truncate">{chan.name.replace(/^[^\w]*/, "")}</span>
                     </span>
                     {(chan.unreadCount || 0) > 0 && (
                       <span className="text-[9px] font-extrabold bg-[#FF4D4D]/10 text-[#FF4D4D] px-1.5 py-0.5 rounded-full">
@@ -747,13 +750,15 @@ export default function ChatView({
 
         <div className="mt-3 flex-shrink-0 p-2 rounded-xl bg-[#5C27FE]/5 border border-[#5C27FE]/15 text-[10px] space-y-1 leading-relaxed">
           <div className="flex items-center gap-1.5 font-bold text-[#5C27FE]">
-            <Bot size={11} className="animate-bounce" />
+            <Bot size={11} className={isAiTyping ? "animate-bounce" : ""} />
 
-            <span>Synergy Engine Active</span>
+            <span>{isAiTyping ? "AI Assistant Responding..." : "Synergy Engine Active"}</span>
           </div>
 
           <span className="text-gray-400">
-            Typing prompts will trigger real-time AI sandbox teammate responses!
+            {isAiTyping
+              ? "Generating response..."
+              : "Type @ai or /ai to trigger AI assistant responses!"}
           </span>
         </div>
       </div>
@@ -778,10 +783,7 @@ export default function ChatView({
               onClick={() => setMobileView("channels")}
               className="md:hidden p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
             >
-              <ChevronLeft
-                size={18}
-                className="text-gray-600 dark:text-gray-400"
-              />
+              <ChevronLeft size={18} className="text-gray-600 dark:text-gray-400" />
             </button>
 
             <div>
@@ -789,8 +791,7 @@ export default function ChatView({
                 <Hash size={12} className="text-[#5C27FE]" />
 
                 <span>
-                  {currentGroup?.name || "Workspace"} / #
-                  {currentChannel?.name || "select-channel"}
+                  {currentGroup?.name || "Workspace"} / #{currentChannel?.name || "select-channel"}
                 </span>
               </h5>
 
@@ -806,19 +807,14 @@ export default function ChatView({
             <span className="w-1.5 h-1.5 rounded-full bg-[#00C48C] animate-ping" />
 
             <span>
-              {users.filter((user) => presence[user.id]?.status === "online")
-                .length || 1}{" "}
-              online
+              {users.filter((user) => presence[user.id]?.status === "online").length || 1} online
             </span>
           </div>
         </div>
 
         {/* MESSAGES */}
 
-        <div
-          ref={chatContainerRef}
-          className="flex-1 overflow-y-auto p-4 space-y-4"
-        >
+        <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4">
           {loadingMessages && activeChanMessages.length === 0 ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-center">
@@ -832,12 +828,8 @@ export default function ChatView({
             <div className="flex items-center justify-center h-full">
               <div className="text-center">
                 <div className="text-4xl mb-3 opacity-30">💬</div>
-                <p className="text-xs text-gray-400 font-semibold">
-                  No messages yet.
-                </p>
-                <p className="text-[10px] text-gray-400 mt-1">
-                  Start the conversation!
-                </p>
+                <p className="text-xs text-gray-400 font-semibold">No messages yet.</p>
+                <p className="text-[10px] text-gray-400 mt-1">Start the conversation!</p>
               </div>
             </div>
           ) : (
@@ -864,10 +856,7 @@ export default function ChatView({
               }
 
               return (
-                <div
-                  key={msg.id}
-                  className="flex gap-2.5 items-start text-left group"
-                >
+                <div key={msg.id} className="flex gap-2.5 items-start text-left group">
                   <img
                     src={sender?.avatarUrl || "https://via.placeholder.com/100"}
                     alt={senderName}
@@ -881,29 +870,42 @@ export default function ChatView({
                         {senderName}
                       </span>
 
-                      <span className="text-[9px] text-gray-400 font-mono">
-                        {timeStr}
-                      </span>
+                      <span className="text-[9px] text-gray-400 font-mono">{timeStr}</span>
 
-                      {msg.userId === currentUser?.id && (
+                      {(msg.userId === currentUser?.id ||
+                        currentUserRole === "admin" ||
+                        currentUserRole === "owner") && (
                         <div className="flex items-center gap-1 ml-2 opacity-0 group-hover:opacity-100 transition-all">
-                          <button
-                            onClick={() => {
-                              setEditingMessageId(msg.id);
-                              setEditingMessageContent(msg.content);
-                            }}
-                            className="p-1 rounded text-gray-400 hover:text-[#5C27FE] hover:bg-[#5C27FE]/10"
-                            title="Edit message"
-                          >
-                            <Edit2 size={10} />
-                          </button>
-                          <button
-                            onClick={() => deleteMessage(msg.id)}
-                            className="p-1 rounded text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20"
-                            title="Delete message"
-                          >
-                            <Trash2 size={10} />
-                          </button>
+                          {msg.userId === currentUser?.id ||
+                          currentUserRole === "admin" ||
+                          currentUserRole === "owner" ? (
+                            <>
+                              <button
+                                onClick={() => {
+                                  setEditingMessageId(msg.id);
+                                  setEditingMessageContent(msg.content);
+                                }}
+                                className="p-1 rounded text-gray-400 hover:text-[#5C27FE] hover:bg-[#5C27FE]/10"
+                                title="Edit message"
+                              >
+                                <Edit2 size={10} />
+                              </button>
+                              <button
+                                onClick={() => deleteMessage(msg.id)}
+                                className="p-1 rounded text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20"
+                                title="Delete message"
+                              >
+                                <Trash2 size={10} />
+                              </button>
+                            </>
+                          ) : (
+                            <div
+                              className="text-[9px] text-gray-400 italic"
+                              title="Only admins can edit/delete other users' messages"
+                            >
+                              Admin only
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -913,9 +915,7 @@ export default function ChatView({
                         <div className="space-y-2">
                           <textarea
                             value={editingMessageContent}
-                            onChange={(e) =>
-                              setEditingMessageContent(e.target.value)
-                            }
+                            onChange={(e) => setEditingMessageContent(e.target.value)}
                             className="w-full bg-white dark:bg-black/30 text-gray-800 dark:text-white rounded-lg border border-gray-200 dark:border-white/10 px-2 py-1.5 outline-none focus:border-[#5C27FE] resize-none"
                             rows={2}
                           />
@@ -968,9 +968,7 @@ export default function ChatView({
                               }
                             />
 
-                            <span className="truncate max-w-[200px]">
-                              {linkedTask.title}
-                            </span>
+                            <span className="truncate max-w-[200px]">{linkedTask.title}</span>
 
                             <ChevronRight size={10} className="text-gray-400" />
                           </button>
@@ -999,8 +997,39 @@ export default function ChatView({
           )}
           {typingNames.length > 0 && (
             <div className="text-[10px] text-gray-400 font-semibold px-10">
-              {typingNames.slice(0, 2).join(", ")}{" "}
-              {typingNames.length === 1 ? "is" : "are"} typing...
+              {typingNames.slice(0, 2).join(", ")} {typingNames.length === 1 ? "is" : "are"}{" "}
+              typing...
+            </div>
+          )}
+          {isAiTyping && (
+            <div className="flex gap-2.5 items-start text-left px-10">
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-br from-[#5C27FE] to-[#a085ff] border border-white/50 flex items-center justify-center">
+                <Bot size={14} className="text-white" />
+              </div>
+              <div className="space-y-1 max-w-[85%]">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-bold text-gray-901 dark:text-gray-105">
+                    NewDay AI
+                  </span>
+                  <span className="text-[9px] text-gray-400 font-mono">now</span>
+                </div>
+                <div className="p-2.5 rounded-2xl bg-gray-50/75 dark:bg-[#1C1C30]/55 border border-gray-150/50 dark:border-white/5 text-xs text-gray-800 dark:text-gray-250">
+                  <div className="flex gap-1 items-center">
+                    <div
+                      className="w-1.5 h-1.5 rounded-full bg-[#5C27FE] animate-bounce"
+                      style={{ animationDelay: "0ms" }}
+                    ></div>
+                    <div
+                      className="w-1.5 h-1.5 rounded-full bg-[#5C27FE] animate-bounce"
+                      style={{ animationDelay: "150ms" }}
+                    ></div>
+                    <div
+                      className="w-1.5 h-1.5 rounded-full bg-[#5C27FE] animate-bounce"
+                      style={{ animationDelay: "300ms" }}
+                    ></div>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -1041,8 +1070,7 @@ export default function ChatView({
             {selectedTaskRefId && (
               <div className="inline-flex items-center gap-1 text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/20 text-[#5C27FE] dark:text-[#a085ff] pl-2 pr-1 py-0.5 rounded-lg">
                 <span className="truncate max-w-[155px]">
-                  ID Linked:{" "}
-                  {tasks.find((t) => t.id === selectedTaskRefId)?.title}
+                  ID Linked: {tasks.find((t) => t.id === selectedTaskRefId)?.title}
                 </span>
 
                 <button
@@ -1110,7 +1138,7 @@ export default function ChatView({
               type="text"
               placeholder={`Collaborate with teammates in #${currentChannel?.name.replace(
                 /^[^\w]*/,
-                "",
+                ""
               )}...`}
               value={newMessageText}
               onChange={(e) => handleMessageInput(e.target.value)}
@@ -1119,9 +1147,7 @@ export default function ChatView({
 
             <button
               type="submit"
-              disabled={
-                !newMessageText.trim() && pendingAttachments.length === 0
-              }
+              disabled={!newMessageText.trim() && pendingAttachments.length === 0}
               className="px-3.5 py-2.5 rounded-xl bg-[#5C27FE] hover:bg-[#4a1ee3] disabled:opacity-40 text-white cursor-pointer shadow-md inline-flex items-center justify-center transition-all"
             >
               <Send size={13} />

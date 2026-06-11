@@ -35,7 +35,7 @@ export async function createApp(options?: { serveFrontend?: boolean }) {
     app.use("/api/auth", authRouter);
     app.use("/tasks", tasksRouter);
     app.use("/api/tasks", tasksRouter);
-    app.use("/", aiRouter);
+    app.use("/api/ai", aiRouter);
     app.use("/api", workspaceRouter);
   }
 
