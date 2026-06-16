@@ -9,7 +9,18 @@ const localhostOriginPattern = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
 const allowedOrigins = new Set(config.allowedOrigins);
 
 export const securityMiddleware: RequestHandler[] = [
-  helmet(),
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+        imgSrc: ["'self'", "data:", "https://cdn.jsdelivr.net"],
+        connectSrc: ["'self'", "https://cdn.jsdelivr.net"],
+        fontSrc: ["'self'", "https://cdn.jsdelivr.net"],
+      },
+    },
+  }),
   cors({
     origin(origin, callback) {
       if (
