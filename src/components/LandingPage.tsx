@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, lazy, Suspense } from "react";
-import { motion, AnimatePresence } from "motion/react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Sparkles,
   Calendar,
@@ -35,7 +35,6 @@ import {
 } from "lucide-react";
 import LogoLoader from "./animations/LogoLoader";
 import BorderGlow from "./BorderGlow";
-import Particles from "./Particles";
 import Hero from "./landing/Hero";
 const FocusAnalyticsSection = lazy(() => import("./landing/FocusAnalyticsSection"));
 const TestimonialsSection = lazy(() => import("./landing/TestimonialsSection"));

@@ -1,8 +1,6 @@
 import React, { useState } from "react";
-import { motion } from "motion/react";
+import { motion } from "framer-motion";
 import { Sparkles, Play, Check, ArrowRight } from "lucide-react";
-import Particles from "../Particles";
-import Galaxy from "../Galaxy";
 import { User } from "../../types";
 import PulsatingButton from "../../registry/magicui/pulsating-button";
 
@@ -46,36 +44,10 @@ export default function Hero({
       <div className="absolute inset-0 -z-10 pointer-events-none">
         {isDarkHook ? (
           <>
-            <Galaxy
-              hueShift={240}
-              density={1.35}
-              glowIntensity={0.55}
-              saturation={0.8}
-              mouseRepulsion={false}
-              mouseInteraction={false}
-              twinkleIntensity={0.35}
-              rotationSpeed={0.06}
-              transparent={true}
-              className="absolute inset-0 w-full h-full"
-            />
             <div className="absolute inset-0 bg-slate-950/34" />
           </>
         ) : (
           <>
-            <Particles
-              particleCount={980}
-              particleSpread={28}
-              speed={0.1}
-              particleColors={["#312E81", "#0F766E", "#B91C1C"]}
-              moveParticlesOnHover={true}
-              particleHoverFactor={1}
-              alphaParticles={true}
-              particleBaseSize={260}
-              sizeRandomness={1.4}
-              cameraDistance={20}
-              disableRotation={false}
-              className="absolute inset-0 w-full h-full"
-            />
             <div className="absolute inset-0 bg-gradient-to-br from-[#eff6ff]/35 via-white/55 to-[#f8fafc]/60" />
             <div className="absolute left-1/2 top-[-5%] h-72 w-72 -translate-x-1/2 rounded-full bg-[#c7d2fe]/25 blur-3xl" />
             <div className="absolute right-10 top-20 h-56 w-56 rounded-full bg-[#dbeafe]/30 blur-3xl" />
@@ -117,12 +89,9 @@ export default function Hero({
         className="text-sm sm:text-base text-gray-700 dark:text-gray-200 max-w-2xl mx-auto mt-6 leading-relaxed"
       >
         Welcome to{" "}
-        <span className="font-bold text-indigo-650 dark:text-indigo-400">
-          NewDay Desk
-        </span>{" "}
-        — the fastest, collaborative, database-synced task workspace. Rebuilt
-        with zero mockups, live synchronized boards, customized tablet/mobile
-        layouts, and AI-powered learning guides.
+        <span className="font-bold text-indigo-650 dark:text-indigo-400">NewDay Desk</span> — the
+        fastest, collaborative, database-synced task workspace. Rebuilt with zero mockups, live
+        synchronized boards, customized tablet/mobile layouts, and AI-powered learning guides.
       </motion.p>
 
       <motion.div
@@ -163,10 +132,7 @@ export default function Hero({
           buttonClassName="rounded-2xl bg-gray-100 dark:bg-white/5 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/10 border border-gray-250/50 dark:border-white/10 transition-all flex items-center justify-center gap-2 px-6 py-3.5"
           pulseColor="rgba(92, 39, 254, 0.5)"
         >
-          <Play
-            size={11}
-            className="fill-current text-gray-600 dark:text-gray-400"
-          />
+          <Play size={11} className="fill-current text-gray-600 dark:text-gray-400" />
           <span>Interactive Simulator</span>
         </PulsatingButton>
       </motion.div>
