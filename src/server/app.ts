@@ -16,6 +16,13 @@ export async function createApp(options?: { serveFrontend?: boolean }) {
   const app = express();
 
   app.set("trust proxy", 1);
+
+  // Serve static files BEFORE security middleware to avoid 403 errors
+  if (serveFrontend && isProduction) {
+    const distPath = path.join(process.cwd(), "dist");
+    app.use(express.static(distPath));
+  }
+
   app.use(securityMiddleware);
   app.use(express.json({ limit: "1mb" }));
   app.use(cookieParser());
@@ -52,19 +59,9 @@ export async function createApp(options?: { serveFrontend?: boolean }) {
       });
       app.use(vite.middlewares);
     } else {
-      const distPath = path.join(process.cwd(), "dist");
-      app.use(
-        express.static(distPath, {
-          setHeaders: (res, filePath) => {
-            if (filePath.endsWith(".css")) {
-              res.setHeader("Content-Type", "text/css");
-            } else if (filePath.endsWith(".js")) {
-              res.setHeader("Content-Type", "application/javascript");
-            }
-          },
-        })
-      );
+      // Static files already served above before security middleware
       app.get("*", (_req, res) => {
+        const distPath = path.join(process.cwd(), "dist");
         res.sendFile(path.join(distPath, "index.html"));
       });
     }
