@@ -3,15 +3,11 @@ import type { QueryResultRow } from "pg";
 
 import fs from "fs";
 import path from "path";
-import { fileURLToPath } from "url";
 import { randomUUID } from "crypto";
 import { config } from "./config";
 import { logger } from "./logger";
 
 const { Pool } = pg;
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 export const pool = new Pool({
   connectionString: config.databaseUrl,
@@ -26,7 +22,7 @@ type Migration = {
 };
 
 function loadSqlMigrations(): Migration[] {
-  const migrationsDir = path.resolve(__dirname, "migrations");
+  const migrationsDir = path.resolve(process.cwd(), "src/server/migrations");
   if (!fs.existsSync(migrationsDir)) {
     return [];
   }
