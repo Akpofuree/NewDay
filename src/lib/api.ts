@@ -1,4 +1,5 @@
-const API_URL = import.meta.env.VITE_API_URL || "";
+const API_URL =
+  import.meta.env.VITE_API_URL || (typeof window !== "undefined" ? window.location.origin : "");
 
 export function apiPath(path: string) {
   if (API_URL) {
@@ -7,15 +8,11 @@ export function apiPath(path: string) {
   return path.startsWith("/") ? path : `/${path}`;
 }
 
-export function apiFetch(
-  path: string,
-  init: RequestInit = {},
-  options?: { retryOn429?: boolean },
-) {
+export function apiFetch(path: string, init: RequestInit = {}, options?: { retryOn429?: boolean }) {
   const retryOn429 = options?.retryOn429 ?? true;
   if (!API_URL && typeof window === "undefined") {
     throw new Error(
-      "VITE_API_URL is not set in a non-browser environment. Please set VITE_API_URL or run the app in the browser with a proper backend proxy.",
+      "VITE_API_URL is not set in a non-browser environment. Please set VITE_API_URL or run the app in the browser with a proper backend proxy."
     );
   }
 
@@ -41,7 +38,7 @@ export function apiFetch(
             window.dispatchEvent(
               new CustomEvent("newday:retry", {
                 detail: { phase: "stop", attempts: attempt },
-              }),
+              })
             );
           }
           return res;
@@ -49,9 +46,7 @@ export function apiFetch(
 
         // status 429 -> retry
         if (attempt === 0 && typeof window !== "undefined") {
-          window.dispatchEvent(
-            new CustomEvent("newday:retry", { detail: { phase: "start" } }),
-          );
+          window.dispatchEvent(new CustomEvent("newday:retry", { detail: { phase: "start" } }));
         }
 
         if (attempt >= maxRetries) {
@@ -59,7 +54,7 @@ export function apiFetch(
             window.dispatchEvent(
               new CustomEvent("newday:retry", {
                 detail: { phase: "stop", attempts: attempt },
-              }),
+              })
             );
           }
           return res;
@@ -73,7 +68,7 @@ export function apiFetch(
           window.dispatchEvent(
             new CustomEvent("newday:retry", {
               detail: { phase: "attempt", attempt, waitMs },
-            }),
+            })
           );
         }
         await new Promise((r) => setTimeout(r, waitMs));
@@ -89,7 +84,7 @@ export function apiFetch(
           window.dispatchEvent(
             new CustomEvent("newday:retry", {
               detail: { phase: "attempt", attempt, waitMs },
-            }),
+            })
           );
         }
         await new Promise((r) => setTimeout(r, waitMs));
