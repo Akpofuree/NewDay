@@ -66,7 +66,7 @@ async function checkDueDates(io: Server) {
 }
 
 async function startServer() {
-  const app = await createApp({ serveFrontend: false });
+  const app = await createApp({ serveFrontend: true });
   const httpServer = createServer(app);
 
   const io = new Server(httpServer, {
