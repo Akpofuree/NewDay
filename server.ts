@@ -85,6 +85,11 @@ async function startServer() {
       },
       credentials: true,
     },
+    // Add these optimizations for Render free tier
+    pingTimeout: 60000, // 60 seconds (Render free tier sleeps after 15 min inactivity)
+    pingInterval: 25000, // 25 seconds
+    transports: ["websocket", "polling"], // Fallback to polling if WebSocket fails
+    maxHttpBufferSize: 1e6, // 1MB
   });
 
   io.use(async (socket, next) => {

@@ -97,6 +97,10 @@ export default function TaskDetailDrawer({
     if (task) {
       setTitleValue(task.title);
       setDescriptionValue(task.description || "");
+      // Reset timer state when switching tasks to prevent bleeding
+      setIsPomodoroActive(false);
+      setTimeLeft(1500);
+      setPomodoroMode("focus");
       // If task already has a roadmap, switch active tab to learning coach so they see it!
       if (task.isLearningGoal && task.aiRoadmap) {
         setActiveTab("learning_coach");
@@ -754,6 +758,39 @@ export default function TaskDetailDrawer({
             </div>
           </div>
 
+          {/* AI Learning Roadmap Quick Action */}
+          {!task.aiRoadmap && (
+            <div className="p-4 rounded-xl bg-gradient-to-r from-amber-500/10 via-pink-500/5 to-indigo-500/10 border border-amber-500/20 shadow-xs text-left relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-16 h-16 bg-[#D97706]/5 rounded-full blur-xl pointer-events-none" />
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Sparkles size={16} className="text-amber-500" />
+                  <div>
+                    <p className="text-[11px] font-bold text-gray-900 dark:text-white">
+                      AI Learning Roadmap
+                    </p>
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400">
+                      Generate a custom study plan for this task
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    if (!task.isLearningGoal) {
+                      handleToggleLearningGoal();
+                    } else {
+                      setActiveTab("learning_coach");
+                    }
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#D97706] to-[#5C27FE] text-white text-[10px] font-bold hover:opacity-90 transition-all cursor-pointer shadow-md inline-flex items-center gap-1.5"
+                >
+                  <BrainCircuit size={12} />
+                  <span>{task.isLearningGoal ? "Open Roadmap" : "Generate"}</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Pomodoro Focus & Time Tracking Widget Card */}
           <div className="p-4 rounded-xl bg-white dark:bg-[#151525] border border-gray-100 dark:border-white/5 shadow-xs space-y-4 text-left relative overflow-hidden">
             <div className="absolute top-0 right-0 w-16 h-16 bg-[#FF4D4D]/5 rounded-full blur-xl pointer-events-none" />
@@ -1223,19 +1260,17 @@ export default function TaskDetailDrawer({
                 <span>Audit Logs ({task.activities.length})</span>
               </button>
 
-              {task.isLearningGoal && (
-                <button
-                  onClick={() => setActiveTab("learning_coach")}
-                  className={`py-2 text-xs font-bold border-b-2 tracking-wide uppercase transition-all flex items-center gap-1.5 cursor-pointer text-[#D97706] ${
-                    activeTab === "learning_coach"
-                      ? "border-amber-500 text-amber-600 dark:text-amber-400 dark:border-amber-400"
-                      : "border-transparent text-gray-400 hover:text-amber-500"
-                  }`}
-                >
-                  <Sparkles size={13} className="text-amber-500" />
-                  <span>Learning Assistant</span>
-                </button>
-              )}
+              <button
+                onClick={() => setActiveTab("learning_coach")}
+                className={`py-2 text-xs font-bold border-b-2 tracking-wide uppercase transition-all flex items-center gap-1.5 cursor-pointer text-[#D97706] ${
+                  activeTab === "learning_coach"
+                    ? "border-amber-500 text-amber-600 dark:text-amber-400 dark:border-amber-400"
+                    : "border-transparent text-gray-400 hover:text-amber-500"
+                }`}
+              >
+                <Sparkles size={13} className="text-amber-500" />
+                <span>Learning Assistant</span>
+              </button>
 
               <button
                 onClick={() => setActiveTab("notes")}
@@ -1361,202 +1396,227 @@ export default function TaskDetailDrawer({
             )}
 
             {/* INTENSITY AI LEARNING HUB & SMART ROADMAP CURATOR */}
-            {activeTab === "learning_coach" && task.isLearningGoal && (
+            {activeTab === "learning_coach" && (
               <div className="text-left space-y-5 animate-fadeIn">
-                {/* Visual Header Spark */}
-                <div className="p-4 rounded-xl bg-gradient-to-r from-amber-500/10 via-pink-500/5 to-indigo-500/10 border border-amber-500/20 relative overflow-hidden flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="space-y-1 z-10 max-w-sm">
-                    <p className="text-[10px] uppercase font-mono tracking-widest text-amber-600 dark:text-amber-400 font-bold flex items-center gap-1">
-                      <Sparkles size={11} className="animate-spin text-amber-500" />
-                      Gemini Educational Architect
-                    </p>
-                    <p className="text-xs text-gray-700 dark:text-gray-300 leading-relaxed">
-                      Transform this workspace task into a full curriculums roadmap. Gemini
-                      constructs study phases, resources, and custom practice sandboxes immediately.
-                    </p>
-                  </div>
-
-                  {!task.aiRoadmap && (
+                {!task.isLearningGoal ? (
+                  <div className="p-6 rounded-xl bg-gradient-to-r from-amber-500/10 via-pink-500/5 to-indigo-500/10 border border-amber-500/20 text-center space-y-4">
+                    <Sparkles size={32} className="mx-auto text-amber-500" />
+                    <div className="space-y-2">
+                      <h4 className="font-sora font-extrabold text-sm text-gray-900 dark:text-white">
+                        Enable Smart Learning Mode
+                      </h4>
+                      <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed max-w-sm mx-auto">
+                        Transform this task into an AI-powered learning journey with custom
+                        roadmaps, interactive coaching, and curated resources.
+                      </p>
+                    </div>
                     <button
-                      onClick={handleGenerateAI_Roadmap}
-                      disabled={isGeneratingRoadmap}
-                      className="btn-primary-shimmer ripple-effect px-4 py-2 bg-gradient-to-r from-[#D97706] to-[#5C27FE] text-white hover:opacity-90 font-bold text-xs rounded-xl shadow-md cursor-pointer disabled:opacity-50 inline-flex items-center gap-1.5 transition-all self-start"
+                      onClick={handleToggleLearningGoal}
+                      className="btn-primary-shimmer ripple-effect px-5 py-2.5 bg-gradient-to-r from-[#D97706] to-[#5C27FE] text-white hover:opacity-90 font-bold text-xs rounded-xl shadow-md cursor-pointer inline-flex items-center gap-2 transition-all"
                     >
-                      {isGeneratingRoadmap ? (
-                        <>
-                          <div className="w-3.5 h-3.5 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                          <span>Mapping Curriculum...</span>
-                        </>
-                      ) : (
-                        <>
-                          <BrainCircuit size={13} />
-                          <span>Generate Roadmap</span>
-                        </>
-                      )}
+                      <BrainCircuit size={14} />
+                      <span>Enable Learning Coach</span>
                     </button>
-                  )}
-                </div>
-
-                {roadmapError && (
-                  <div className="p-3 rounded-lg bg-red-100 dark:bg-red-950/20 border border-red-200/20 text-xs text-amber-550 dark:text-red-400 mt-2 font-bold leading-relaxed">
-                    🚨 API Configuration Warning: {roadmapError}
                   </div>
-                )}
-
-                {/* AI generated structured Roadmap list */}
-                {task.aiRoadmap && (
-                  <div className="space-y-4 pt-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500">
-                        DYNAMIC ROADMAP STEPS
-                      </span>
-                      <span className="text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2.5 py-0.5 rounded-full font-mono">
-                        {task.aiRoadmap.filter((p) => p.completed).length} / {task.aiRoadmap.length}{" "}
-                        COMPLETED
-                      </span>
-                    </div>
-
-                    <div className="space-y-3.5">
-                      {task.aiRoadmap.map((phase, i) => (
-                        <div
-                          key={i}
-                          className={`p-4 rounded-xl border transition-all text-left relative ${
-                            phase.completed
-                              ? "bg-amber-500/5 border-amber-500/30"
-                              : "bg-white dark:bg-[#151525] border-gray-150 dark:border-white/5"
-                          }`}
-                        >
-                          <div className="flex items-start justify-between gap-2.5">
-                            <div>
-                              <p className="text-[9px] font-mono font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
-                                Phase {phase.phase} · Est: {phase.estimatedTime}
-                              </p>
-                              <h5 className="font-sora font-extrabold text-sm text-gray-900 dark:text-white mt-0.5">
-                                {phase.title}
-                              </h5>
-                              <p className="text-xs text-gray-500 dark:text-gray-300 mt-1.5 leading-relaxed font-normal">
-                                {phase.description}
-                              </p>
-                            </div>
-
-                            <input
-                              type="checkbox"
-                              checked={phase.completed || false}
-                              onChange={(e) => handleToggleRoadmapPhase(i, e.target.checked)}
-                              className="w-4.5 h-4.5 text-amber-500 rounded border-amber-300 focus:ring-0 cursor-pointer flex-shrink-0 mt-0.5"
-                              title="Toggle Milestone Accomplished"
-                            />
-                          </div>
-
-                          {/* Suggested Core External Resource Links */}
-                          <div className="mt-3.5 pt-3.5 border-t border-gray-100 dark:border-white/5">
-                            <p className="text-[9px] font-extrabold uppercase tracking-wider text-gray-400">
-                              Curated Learning Assets
-                            </p>
-
-                            <div className="mt-2 space-y-1.5">
-                              {phase.resources?.map((res, rIdx) => (
-                                <a
-                                  key={rIdx}
-                                  href={res.url}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="flex items-center gap-2 group/link text-xs font-semibold text-gray-600 dark:text-gray-300 hover:text-[#5C27FE] dark:hover:text-[#a085ff] transition-all"
-                                >
-                                  <span className="text-[9px] font-extrabold uppercase tracking-widest bg-gray-100 dark:bg-white/5 group-hover/link:bg-[#5C27FE]/15 px-1.5 py-0.5 rounded text-gray-450">
-                                    {res.type}
-                                  </span>
-                                  <span className="truncate flex-1 text-left decoration-solid group-hover/link:underline">
-                                    {res.title}
-                                  </span>
-                                  <ExternalLink
-                                    size={10}
-                                    className="text-gray-400 group-hover/link:text-[#5C27FE] flex-shrink-0"
-                                  />
-                                </a>
-                              ))}
-                            </div>
-                          </div>
-
-                          {/* Suggesed Active Sandbox Hands-On Project */}
-                          <div className="mt-3.5 p-3 rounded-xl bg-gray-100/50 dark:bg-black/20 border border-gray-200/20 text-xs">
-                            <span className="text-[9px] font-mono font-bold text-indigo-500 uppercase block mb-1">
-                              💪 CHALENGE BENCHMARK SANDBOX
-                            </span>
-                            <span className="text-gray-700 dark:text-gray-200 leading-relaxed font-bold block">
-                              {phase.practiceProject}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* AI COACH DISCUSSIONS MINI BOX */}
-                    <div className="pt-4 border-t border-gray-200/50 dark:border-white/5 space-y-3.5">
-                      <div className="flex items-center gap-1 text-[11px] font-extrabold uppercase tracking-wider text-gray-500">
-                        <BrainCircuit size={12} className="text-amber-500" />
-                        <span>Interactive Coaching Workspace Sandbox</span>
+                ) : (
+                  <>
+                    {/* Visual Header Spark */}
+                    <div className="p-4 rounded-xl bg-gradient-to-r from-amber-500/10 via-pink-500/5 to-indigo-500/10 border border-amber-500/20 relative overflow-hidden flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="space-y-1 z-10 max-w-sm">
+                        <p className="text-[10px] uppercase font-mono tracking-widest text-amber-600 dark:text-amber-400 font-bold flex items-center gap-1">
+                          <Sparkles size={11} className="animate-spin text-amber-500" />
+                          Gemini Educational Architect
+                        </p>
+                        <p className="text-xs text-gray-700 dark:text-gray-300 leading-relaxed">
+                          Transform this workspace task into a full curriculums roadmap. Gemini
+                          constructs study phases, resources, and custom practice sandboxes
+                          immediately.
+                        </p>
                       </div>
 
-                      {/* Coaching Messages logs panel */}
-                      <div className="bg-white/45 dark:bg-black/20 p-3.5 rounded-xl border border-gray-150 dark:border-white/10 text-xs space-y-3.5 max-h-56 overflow-y-auto">
-                        {aiChatMessages.length === 0 ? (
-                          <p className="italic text-gray-400 text-center py-2.5">
-                            Ask your virtual AI coach any question regarding this study outline to
-                            solidify your understanding...
-                          </p>
-                        ) : (
-                          aiChatMessages.map((msg, mIdx) => (
+                      {!task.aiRoadmap && (
+                        <button
+                          onClick={handleGenerateAI_Roadmap}
+                          disabled={isGeneratingRoadmap}
+                          className="btn-primary-shimmer ripple-effect px-4 py-2 bg-gradient-to-r from-[#D97706] to-[#5C27FE] text-white hover:opacity-90 font-bold text-xs rounded-xl shadow-md cursor-pointer disabled:opacity-50 inline-flex items-center gap-1.5 transition-all self-start"
+                        >
+                          {isGeneratingRoadmap ? (
+                            <>
+                              <div className="w-3.5 h-3.5 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                              <span>Mapping Curriculum...</span>
+                            </>
+                          ) : (
+                            <>
+                              <BrainCircuit size={13} />
+                              <span>Generate Roadmap</span>
+                            </>
+                          )}
+                        </button>
+                      )}
+                    </div>
+
+                    {roadmapError && (
+                      <div className="p-3 rounded-lg bg-red-100 dark:bg-red-950/20 border border-red-200/20 text-xs text-amber-550 dark:text-red-400 mt-2 font-bold leading-relaxed">
+                        🚨 API Configuration Warning: {roadmapError}
+                      </div>
+                    )}
+
+                    {/* AI generated structured Roadmap list */}
+                    {task.aiRoadmap && (
+                      <div className="space-y-4 pt-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500">
+                            DYNAMIC ROADMAP STEPS
+                          </span>
+                          <span className="text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2.5 py-0.5 rounded-full font-mono">
+                            {task.aiRoadmap.filter((p) => p.completed).length} /{" "}
+                            {task.aiRoadmap.length} COMPLETED
+                          </span>
+                        </div>
+
+                        <div className="space-y-3.5">
+                          {task.aiRoadmap.map((phase, i) => (
                             <div
-                              key={mIdx}
-                              className={`flex gap-2 text-left ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                              key={i}
+                              className={`p-4 rounded-xl border transition-all text-left relative ${
+                                phase.completed
+                                  ? "bg-amber-500/5 border-amber-500/30"
+                                  : "bg-white dark:bg-[#151525] border-gray-150 dark:border-white/5"
+                              }`}
                             >
-                              {msg.role === "model" && (
-                                <div className="w-6 h-6 rounded-lg bg-amber-500 text-white font-extrabold text-[10px] flex items-center justify-center flex-shrink-0 mt-0.5 shadow-sm">
-                                  AI
+                              <div className="flex items-start justify-between gap-2.5">
+                                <div>
+                                  <p className="text-[9px] font-mono font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                                    Phase {phase.phase} · Est: {phase.estimatedTime}
+                                  </p>
+                                  <h5 className="font-sora font-extrabold text-sm text-gray-900 dark:text-white mt-0.5">
+                                    {phase.title}
+                                  </h5>
+                                  <p className="text-xs text-gray-500 dark:text-gray-300 mt-1.5 leading-relaxed font-normal">
+                                    {phase.description}
+                                  </p>
                                 </div>
-                              )}
-                              <div
-                                className={`p-3.5 rounded-xl max-w-[85%] leading-relaxed ${
-                                  msg.role === "user"
-                                    ? "bg-[#5C27FE] text-white font-semibold"
-                                    : "bg-white dark:bg-[#1A1A2E]/55 border border-gray-150 dark:border-white/5 text-gray-800 dark:text-gray-200"
-                                }`}
-                              >
-                                <p className="whitespace-pre-line">{msg.text}</p>
+
+                                <input
+                                  type="checkbox"
+                                  checked={phase.completed || false}
+                                  onChange={(e) => handleToggleRoadmapPhase(i, e.target.checked)}
+                                  className="w-4.5 h-4.5 text-amber-500 rounded border-amber-300 focus:ring-0 cursor-pointer flex-shrink-0 mt-0.5"
+                                  title="Toggle Milestone Accomplished"
+                                />
+                              </div>
+
+                              {/* Suggested Core External Resource Links */}
+                              <div className="mt-3.5 pt-3.5 border-t border-gray-100 dark:border-white/5">
+                                <p className="text-[9px] font-extrabold uppercase tracking-wider text-gray-400">
+                                  Curated Learning Assets
+                                </p>
+
+                                <div className="mt-2 space-y-1.5">
+                                  {phase.resources?.map((res, rIdx) => (
+                                    <a
+                                      key={rIdx}
+                                      href={res.url}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="flex items-center gap-2 group/link text-xs font-semibold text-gray-600 dark:text-gray-300 hover:text-[#5C27FE] dark:hover:text-[#a085ff] transition-all"
+                                    >
+                                      <span className="text-[9px] font-extrabold uppercase tracking-widest bg-gray-100 dark:bg-white/5 group-hover/link:bg-[#5C27FE]/15 px-1.5 py-0.5 rounded text-gray-450">
+                                        {res.type}
+                                      </span>
+                                      <span className="truncate flex-1 text-left decoration-solid group-hover/link:underline">
+                                        {res.title}
+                                      </span>
+                                      <ExternalLink
+                                        size={10}
+                                        className="text-gray-400 group-hover/link:text-[#5C27FE] flex-shrink-0"
+                                      />
+                                    </a>
+                                  ))}
+                                </div>
+                              </div>
+
+                              {/* Suggesed Active Sandbox Hands-On Project */}
+                              <div className="mt-3.5 p-3 rounded-xl bg-gray-100/50 dark:bg-black/20 border border-gray-200/20 text-xs">
+                                <span className="text-[9px] font-mono font-bold text-indigo-500 uppercase block mb-1">
+                                  💪 CHALENGE BENCHMARK SANDBOX
+                                </span>
+                                <span className="text-gray-700 dark:text-gray-200 leading-relaxed font-bold block">
+                                  {phase.practiceProject}
+                                </span>
                               </div>
                             </div>
-                          ))
-                        )}
+                          ))}
+                        </div>
 
-                        {isAiResponding && (
-                          <div className="flex gap-2 justify-start items-center text-gray-400 italic">
-                            <div className="w-5 h-5 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />
-                            <span>Mentor Coach formulating recommendations...</span>
+                        {/* AI COACH DISCUSSIONS MINI BOX */}
+                        <div className="pt-4 border-t border-gray-200/50 dark:border-white/5 space-y-3.5">
+                          <div className="flex items-center gap-1 text-[11px] font-extrabold uppercase tracking-wider text-gray-500">
+                            <BrainCircuit size={12} className="text-amber-500" />
+                            <span>Interactive Coaching Workspace Sandbox</span>
                           </div>
-                        )}
-                      </div>
 
-                      {/* Coach Prompt Form */}
-                      <form onSubmit={askAUMentorCoaching} className="flex gap-2">
-                        <input
-                          type="text"
-                          placeholder="Discuss lessons, ask for debugging tips or quiz questions..."
-                          value={aiChatText}
-                          onChange={(e) => setAiChatText(e.target.value)}
-                          disabled={isAiResponding}
-                          className="flex-1 text-xs bg-white dark:bg-[#151525] text-gray-900 dark:text-white px-3.5 py-2.5 rounded-xl border border-gray-200/50 dark:border-white/10 outline-none focus:border-amber-500 disabled:opacity-50"
-                        />
-                        <button
-                          type="submit"
-                          disabled={isAiResponding || !aiChatText.trim()}
-                          className="p-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white cursor-pointer shadow-md inline-flex items-center justify-center transition-all"
-                        >
-                          <Send size={13} />
-                        </button>
-                      </form>
-                    </div>
-                  </div>
+                          {/* Coaching Messages logs panel */}
+                          <div className="bg-white/45 dark:bg-black/20 p-3.5 rounded-xl border border-gray-150 dark:border-white/10 text-xs space-y-3.5 max-h-56 overflow-y-auto">
+                            {aiChatMessages.length === 0 ? (
+                              <p className="italic text-gray-400 text-center py-2.5">
+                                Ask your virtual AI coach any question regarding this study outline
+                                to solidify your understanding...
+                              </p>
+                            ) : (
+                              aiChatMessages.map((msg, mIdx) => (
+                                <div
+                                  key={mIdx}
+                                  className={`flex gap-2 text-left ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                                >
+                                  {msg.role === "model" && (
+                                    <div className="w-6 h-6 rounded-lg bg-amber-500 text-white font-extrabold text-[10px] flex items-center justify-center flex-shrink-0 mt-0.5 shadow-sm">
+                                      AI
+                                    </div>
+                                  )}
+                                  <div
+                                    className={`p-3.5 rounded-xl max-w-[85%] leading-relaxed ${
+                                      msg.role === "user"
+                                        ? "bg-[#5C27FE] text-white font-semibold"
+                                        : "bg-white dark:bg-[#1A1A2E]/55 border border-gray-150 dark:border-white/5 text-gray-800 dark:text-gray-200"
+                                    }`}
+                                  >
+                                    <p className="whitespace-pre-line">{msg.text}</p>
+                                  </div>
+                                </div>
+                              ))
+                            )}
+
+                            {isAiResponding && (
+                              <div className="flex gap-2 justify-start items-center text-gray-400 italic">
+                                <div className="w-5 h-5 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />
+                                <span>Mentor Coach formulating recommendations...</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Coach Prompt Form */}
+                          <form onSubmit={askAUMentorCoaching} className="flex gap-2">
+                            <input
+                              type="text"
+                              placeholder="Discuss lessons, ask for debugging tips or quiz questions..."
+                              value={aiChatText}
+                              onChange={(e) => setAiChatText(e.target.value)}
+                              disabled={isAiResponding}
+                              className="flex-1 text-xs bg-white dark:bg-[#151525] text-gray-900 dark:text-white px-3.5 py-2.5 rounded-xl border border-gray-200/50 dark:border-white/10 outline-none focus:border-amber-500 disabled:opacity-50"
+                            />
+                            <button
+                              type="submit"
+                              disabled={isAiResponding || !aiChatText.trim()}
+                              className="p-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white cursor-pointer shadow-md inline-flex items-center justify-center transition-all"
+                            >
+                              <Send size={13} />
+                            </button>
+                          </form>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             )}

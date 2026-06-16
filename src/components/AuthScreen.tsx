@@ -16,9 +16,7 @@ import {
 import { GoogleLogin } from "@react-oauth/google";
 import { jwtDecode } from "jwt-decode";
 import { apiFetch } from "../lib/api";
-import PasswordStrengthIndicator, {
-  isPasswordStrong,
-} from "./PasswordStrengthIndicator";
+import PasswordStrengthIndicator, { isPasswordStrong } from "./PasswordStrengthIndicator";
 import LogoLoader from "./animations/LogoLoader";
 const logoImage = new URL("../images/logo.png", import.meta.url).href;
 
@@ -110,9 +108,7 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
           throw new Error(data.error || "Failed to request password reset.");
         }
 
-        setResetSuccess(
-          data.message || "If that email exists, a reset link will be sent.",
-        );
+        setResetSuccess(data.message || "If that email exists, a reset link will be sent.");
         setIsReset(false);
       } catch (err: any) {
         setError(err.message || "Failed to request password reset.");
@@ -138,9 +134,7 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
 
         const data = await response.json();
         if (!response.ok) {
-          throw new Error(
-            data.errors?.join(" ") || data.error || "Failed to sign up.",
-          );
+          throw new Error(data.errors?.join(" ") || data.error || "Failed to sign up.");
         }
 
         onAuthSuccess(data);
@@ -165,7 +159,7 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
               method: "POST",
               body: JSON.stringify({ email, password }),
             },
-            { retryOn429: false },
+            { retryOn429: false }
           );
         } catch {
           throw new Error("Server unavailable — please try again later");
@@ -178,14 +172,9 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
             setError(formatLockoutMessage(data.retryAfterSeconds));
             return;
           }
-          if (
-            response.status === 403 &&
-            data.code === "ACCOUNT_PERMANENTLY_LOCKED"
-          ) {
+          if (response.status === 403 && data.code === "ACCOUNT_PERMANENTLY_LOCKED") {
             setIsPermanentLock(true);
-            setError(
-              data.error || "Account permanently locked — contact support",
-            );
+            setError(data.error || "Account permanently locked — contact support");
             return;
           }
           throw new Error(data.error || "Invalid email or password");
@@ -220,24 +209,18 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
           <div>
             {/* Title logo info */}
             <div className="flex items-center gap-2 mb-8">
-              <img
-                src={logoImage}
-                alt="NewDay logo"
-                className="h-28 w-28 object-contain"
-              />
+              <img src={logoImage} alt="NewDay logo" className="h-28 w-28 object-contain" />
               <span className="sr-only">NewDay</span>
             </div>
 
             <h1 className="font-extrabold text-2xl tracking-tight leading-tight text-gray-950 dark:text-gray-100 mb-4">
               Durable Collaborative{" "}
-              <span className="text-[#5C27FE] dark:text-[#a085ff]">
-                Task Workspace
-              </span>
+              <span className="text-[#5C27FE] dark:text-[#a085ff]">Task Workspace</span>
             </h1>
             <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed mb-6">
-              Welcome to the production environment. Experience real-time
-              multi-user synchronization, secure workspace credentials database
-              persistence, and AI-powered curriculum maps.
+              Welcome to the production environment. Experience real-time multi-user
+              synchronization, secure workspace credentials database persistence, and AI-powered
+              curriculum maps.
             </p>
           </div>
 
@@ -251,8 +234,8 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
                   Real-Time Synergized Chat
                 </h4>
                 <p className="text-[10px] text-gray-500 dark:text-gray-400">
-                  Collaborate with peers instantly. Chat across custom project
-                  channels backed by database streaming.
+                  Collaborate with peers instantly. Chat across custom project channels backed by
+                  database streaming.
                 </p>
               </div>
             </div>
@@ -266,8 +249,8 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
                   Zero Mock Accounts
                 </h4>
                 <p className="text-[10px] text-gray-500 dark:text-gray-400">
-                  Only real verified users. Workspaces start clean and save
-                  securely to server database structures.
+                  Only real verified users. Workspaces start clean and save securely to server
+                  database structures.
                 </p>
               </div>
             </div>
@@ -281,8 +264,8 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
                   AI Mentor Roadmaps
                 </h4>
                 <p className="text-[10px] text-gray-500 dark:text-gray-400">
-                  Unlock interactive modular learning guides natively generated
-                  directly in cooperation with Gemini AI.
+                  Unlock interactive modular learning guides natively generated directly in
+                  cooperation with Gemini AI.
                 </p>
               </div>
             </div>
@@ -500,11 +483,7 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
               }}
               className="font-semibold text-[#5C27FE] dark:text-[#a085ff] hover:underline cursor-pointer"
             >
-              {isReset
-                ? "Sign in instead"
-                : isSignUp
-                  ? "Sign in instead"
-                  : "Create new account"}
+              {isReset ? "Sign in instead" : isSignUp ? "Sign in instead" : "Create new account"}
             </button>
           </div>
         </div>

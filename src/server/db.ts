@@ -15,9 +15,8 @@ const __dirname = path.dirname(__filename);
 
 export const pool = new Pool({
   connectionString: config.databaseUrl,
-  ssl: config.databaseUrl.includes("localhost")
-    ? false
-    : { rejectUnauthorized: false },
+  ssl: config.databaseUrl.includes("localhost") ? false : { rejectUnauthorized: false }, // Required for Neon on Render
+  max: 5, // Keep pool small on free tier
 });
 
 type Migration = {
@@ -235,7 +234,7 @@ const migrations: Migration[] = [
 
 export async function query<T extends QueryResultRow = QueryResultRow>(
   text: string,
-  params: unknown[] = [],
+  params: unknown[] = []
 ) {
   return pool.query<T>(text, params);
 }
@@ -255,15 +254,12 @@ export async function migrate() {
     `);
 
     const fileMigrations = loadSqlMigrations();
-    const allMigrations = [...migrations, ...fileMigrations].sort(
-      (a, b) => a.id - b.id,
-    );
+    const allMigrations = [...migrations, ...fileMigrations].sort((a, b) => a.id - b.id);
 
     for (const migration of allMigrations) {
-      const applied = await client.query(
-        "SELECT id FROM schema_migrations WHERE id = $1",
-        [migration.id],
-      );
+      const applied = await client.query("SELECT id FROM schema_migrations WHERE id = $1", [
+        migration.id,
+      ]);
 
       if (applied.rowCount) continue;
 
@@ -272,10 +268,10 @@ export async function migrate() {
       });
 
       await client.query(migration.sql);
-      await client.query(
-        "INSERT INTO schema_migrations (id, name) VALUES ($1, $2)",
-        [migration.id, migration.name],
-      );
+      await client.query("INSERT INTO schema_migrations (id, name) VALUES ($1, $2)", [
+        migration.id,
+        migration.name,
+      ]);
     }
 
     await client.query("COMMIT");
@@ -292,8 +288,7 @@ export const defaultGroups = [
     id: "group_personal",
     name: "Personal Workspace",
     color: "#00C48C",
-    description:
-      "Your default NewDay workspace.",
+    description: "Your default NewDay workspace.",
     memberIds: [],
     ownerId: null,
     visibility: "private",

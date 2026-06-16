@@ -36,12 +36,8 @@ export default function MetricsRow({ metrics }: MetricsRowProps) {
         <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
           Active In Progress
         </p>
-        <h3 className="font-sora font-black text-2xl text-[#0EA5E9] mt-1">
-          {metrics.inProgress}
-        </h3>
-        <p className="text-[10px] text-gray-500 mt-1">
-          Under current execution
-        </p>
+        <h3 className="font-sora font-black text-2xl text-[#0EA5E9] mt-1">{metrics.inProgress}</h3>
+        <p className="text-[10px] text-gray-500 mt-1">Under current execution</p>
       </div>
 
       <div className="p-4 rounded-xl glass-card text-left relative overflow-hidden border-l-4 border-l-[#FF4D4D]">
@@ -49,40 +45,39 @@ export default function MetricsRow({ metrics }: MetricsRowProps) {
         <p className="text-[10px] font-bold uppercase tracking-wider text-[#FF4D4D]">
           Overdue Alerts
         </p>
-        <h3 className="font-sora font-black text-2xl text-[#FF4D4D] mt-1">
-          {metrics.overdue}
-        </h3>
-        <p className="text-[10px] text-[#FF4D4D]/85 mt-1 font-semibold">
-          Requires immediate trace
-        </p>
+        <h3 className="font-sora font-black text-2xl text-[#FF4D4D] mt-1">{metrics.overdue}</h3>
+        <p className="text-[10px] text-[#FF4D4D]/85 mt-1 font-semibold">Requires immediate trace</p>
       </div>
 
-      {metrics.totalTodayTasks > 0 && (
-        <div className="col-span-2 lg:col-span-4 p-3.5 rounded-xl bg-white dark:bg-[#1C1C30]/50 border border-gray-100 dark:border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-left">
-          <div className="text-xs">
-            <span className="font-bold text-gray-900 dark:text-white">
-              Workspace Completion Progress:
-            </span>
-            <span className="text-gray-500 ml-1.5">
-              You've completed{" "}
-              <span className="text-[#00C48C] font-semibold">
-                {metrics.completedTodayTasks}
-              </span>{" "}
-              of your{" "}
-              <span className="font-semibold">{metrics.totalTodayTasks}</span>{" "}
-              target today constraints.
-            </span>
+      <div className="col-span-2 lg:col-span-4 p-3.5 rounded-xl bg-white dark:bg-[#1C1C30]/50 border border-gray-100 dark:border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-left">
+        {metrics.totalTodayTasks > 0 ? (
+          <>
+            <div className="text-xs">
+              <span className="font-bold text-gray-900 dark:text-white">
+                Workspace Completion Progress:
+              </span>
+              <span className="text-gray-500 ml-1.5">
+                You've completed{" "}
+                <span className="text-[#00C48C] font-semibold">{metrics.completedTodayTasks}</span>{" "}
+                of your <span className="font-semibold">{metrics.totalTodayTasks}</span> target
+                today constraints.
+              </span>
+            </div>
+            <div className="w-full sm:w-48 h-2 bg-gray-100 dark:bg-white/10 rounded-full overflow-hidden flex-shrink-0">
+              <div
+                className="h-full bg-gradient-to-r from-[#00C48C] to-[#0ea5e9] rounded-full transition-all duration-300"
+                style={{
+                  width: `${Math.min(100, (metrics.completedTodayTasks / metrics.totalTodayTasks) * 100)}%`,
+                }}
+              />
+            </div>
+          </>
+        ) : (
+          <div className="text-xs text-gray-500 text-center w-full">
+            No tasks scheduled for today. Add tasks to track your progress!
           </div>
-          <div className="w-full sm:w-48 h-2 bg-gray-100 dark:bg-white/10 rounded-full overflow-hidden flex-shrink-0">
-            <div
-              className="h-full bg-gradient-to-r from-[#00C48C] to-[#0ea5e9] rounded-full transition-all duration-300"
-              style={{
-                width: `${Math.min(100, (metrics.completedTodayTasks / metrics.totalTodayTasks) * 100)}%`,
-              }}
-            />
-          </div>
-        </div>
-      )}
+        )}
+      </div>
     </section>
   );
 }

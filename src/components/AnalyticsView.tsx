@@ -1,15 +1,6 @@
 import React from "react";
 import { Task, User, Group, Goal } from "../types";
-import {
-  BarChart3,
-  PieChart,
-  Timer,
-  Trophy,
-  Flame,
-  Zap,
-  CheckCircle2,
-  Clock,
-} from "lucide-react";
+import { BarChart3, PieChart, Timer, Trophy, Flame, Zap, CheckCircle2, Clock } from "lucide-react";
 
 interface AnalyticsViewProps {
   tasks: Task[];
@@ -23,9 +14,7 @@ function computeGoalProgress(goal: Goal, tasks: Task[]) {
   const completedMilestones = milestones.filter((m) => m.completed).length;
   const totalMilestones = milestones.length;
   const linkedTasks = tasks.filter((t) => goal.linkedTaskIds.includes(t.id));
-  const completedTasks = linkedTasks.filter(
-    (t) => t.status === "completed",
-  ).length;
+  const completedTasks = linkedTasks.filter((t) => t.status === "completed").length;
 
   if (totalMilestones > 0 && linkedTasks.length > 0) {
     const milestoneRate = completedMilestones / totalMilestones;
@@ -44,12 +33,29 @@ function computeGoalProgress(goal: Goal, tasks: Task[]) {
   return goal.progress || 0;
 }
 
-export default function AnalyticsView({
-  tasks,
-  goals,
-  users,
-  groups,
-}: AnalyticsViewProps) {
+export default function AnalyticsView({ tasks, goals, users, groups }: AnalyticsViewProps) {
+  // Empty state check
+  const hasNoData =
+    tasks.length === 0 && goals.length === 0 && users.length === 0 && groups.length === 0;
+
+  if (hasNoData) {
+    return (
+      <div className="glass-card p-12 rounded-2xl text-center flex flex-col items-center justify-center space-y-4">
+        <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-white/5 flex items-center justify-center text-gray-400">
+          <PieChart size={32} />
+        </div>
+        <div className="max-w-sm">
+          <h4 className="font-sora font-extrabold text-lg text-gray-900 dark:text-white">
+            No analytics data available
+          </h4>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 leading-relaxed">
+            Start by creating tasks, goals, or adding team members to see your workspace analytics.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   // 1. Completion rate calculations
   const total = tasks.length;
   const completed = tasks.filter((t) => t.status === "completed").length;
@@ -70,9 +76,7 @@ export default function AnalyticsView({
   // 3. User XP calculations & rankings
   const getUserStats = (userId: string) => {
     const userTasks = tasks.filter((t) => t.assigneeId === userId);
-    const userCompleted = userTasks.filter(
-      (t) => t.status === "completed",
-    ).length;
+    const userCompleted = userTasks.filter((t) => t.status === "completed").length;
     // Base XP: 100 XP per task completed + 50 XP per active focus timer session simulated + 10 XP per subtask done
     let computedXP = userCompleted * 100;
 
@@ -89,8 +93,7 @@ export default function AnalyticsView({
     computedXP += Math.floor(focusedMinutes * 5); // 5 XP per focused minute
 
     // Streak criteria: if they have any tasks done or in progress
-    const streak =
-      userCompleted > 0 ? Math.min(7, 2 + Math.floor(userCompleted / 2)) : 1;
+    const streak = userCompleted > 0 ? Math.min(7, 2 + Math.floor(userCompleted / 2)) : 1;
 
     return {
       completedCount: userCompleted,
@@ -106,12 +109,9 @@ export default function AnalyticsView({
   const totalGoals = goals.length;
   const completedGoals = goalProgresses.filter((value) => value >= 100).length;
   const averageGoalProgress = totalGoals
-    ? Math.round(
-        goalProgresses.reduce((sum, value) => sum + value, 0) / totalGoals,
-      )
+    ? Math.round(goalProgresses.reduce((sum, value) => sum + value, 0) / totalGoals)
     : 0;
-  const linkedTaskCount = new Set(goals.flatMap((goal) => goal.linkedTaskIds))
-    .size;
+  const linkedTaskCount = new Set(goals.flatMap((goal) => goal.linkedTaskIds)).size;
 
   const groupStats = groups.map((g) => {
     const groupTasks = tasks.filter((t) => t.groupId === g.id);
@@ -121,10 +121,7 @@ export default function AnalyticsView({
       color: g.color,
       total: groupTasks.length,
       done,
-      rate:
-        groupTasks.length > 0
-          ? Math.round((done / groupTasks.length) * 100)
-          : 0,
+      rate: groupTasks.length > 0 ? Math.round((done / groupTasks.length) * 100) : 0,
     };
   });
 
@@ -162,9 +159,7 @@ export default function AnalyticsView({
                   className="stroke-[#5C27FE] fill-transparent transition-all duration-1000"
                   strokeWidth="8"
                   strokeDasharray={2 * Math.PI * 46}
-                  strokeDashoffset={
-                    2 * Math.PI * 46 * (1 - completionRate / 100)
-                  }
+                  strokeDashoffset={2 * Math.PI * 46 * (1 - completionRate / 100)}
                   strokeLinecap="round"
                 />
               </svg>
@@ -172,17 +167,14 @@ export default function AnalyticsView({
                 <span className="font-sora font-black text-2xl text-gray-900 dark:text-white">
                   {completionRate}%
                 </span>
-                <span className="text-[9px] uppercase font-bold text-gray-400">
-                  Achieved
-                </span>
+                <span className="text-[9px] uppercase font-bold text-gray-400">Achieved</span>
               </div>
             </div>
 
             <div className="space-y-2 flex-1">
               <div className="flex justify-between items-center text-xs">
                 <span className="text-gray-400 flex items-center gap-1.5 font-medium">
-                  <span className="w-2 h-2 rounded-full bg-[#00C48C]" />{" "}
-                  Completed
+                  <span className="w-2 h-2 rounded-full bg-[#00C48C]" /> Completed
                 </span>
                 <span className="font-bold text-gray-800 dark:text-white font-mono">
                   {completed}
@@ -190,8 +182,7 @@ export default function AnalyticsView({
               </div>
               <div className="flex justify-between items-center text-xs">
                 <span className="text-gray-400 flex items-center gap-1.5 font-medium">
-                  <span className="w-2 h-2 rounded-full bg-[#0EA5E9]" /> In
-                  Progress
+                  <span className="w-2 h-2 rounded-full bg-[#0EA5E9]" /> In Progress
                 </span>
                 <span className="font-bold text-gray-800 dark:text-white font-mono">
                   {inProgress}
@@ -201,17 +192,13 @@ export default function AnalyticsView({
                 <span className="text-gray-400 flex items-center gap-1.5 font-medium">
                   <span className="w-2 h-2 rounded-full bg-amber-500" /> Pending
                 </span>
-                <span className="font-bold text-gray-800 dark:text-white font-mono">
-                  {pending}
-                </span>
+                <span className="font-bold text-gray-800 dark:text-white font-mono">{pending}</span>
               </div>
               <div className="flex justify-between items-center text-xs">
                 <span className="text-gray-400 flex items-center gap-1.5 font-medium">
                   <span className="w-2 h-2 rounded-full bg-[#FF4D4D]" /> Overdue
                 </span>
-                <span className="font-bold text-red-500 font-mono">
-                  {overdue}
-                </span>
+                <span className="font-bold text-red-500 font-mono">{overdue}</span>
               </div>
             </div>
           </div>
@@ -315,21 +302,14 @@ export default function AnalyticsView({
 
             <div className="text-center">
               <h4 className="font-sora font-black text-3xl text-gray-900 dark:text-white">
-                {Math.ceil(
-                  tasks.reduce(
-                    (sum, t) => sum + (t.timeTrackedSeconds || 0),
-                    0,
-                  ) / 60,
-                )}{" "}
-                m
+                {Math.ceil(tasks.reduce((sum, t) => sum + (t.timeTrackedSeconds || 0), 0) / 60)} m
               </h4>
               <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider mt-1">
                 Total Concentrator Minutes Logged
               </p>
             </div>
             <div className="text-xs text-gray-500 text-center font-medium max-w-[200px]">
-              Complete daily Pomodoro chunks to boost user stats on the teammate
-              leaderboard!
+              Complete daily Pomodoro chunks to boost user stats on the teammate leaderboard!
             </div>
           </div>
         </div>
@@ -350,23 +330,15 @@ export default function AnalyticsView({
             <div className="text-sm font-black text-gray-900 dark:text-white">
               {totalGoals} Goals Active
             </div>
-            <div className="text-[11px] text-gray-500">
-              Average Goal Completion
-            </div>
-            <div className="text-[32px] font-extrabold text-[#5C27FE]">
-              {averageGoalProgress}%
-            </div>
+            <div className="text-[11px] text-gray-500">Average Goal Completion</div>
+            <div className="text-[32px] font-extrabold text-[#5C27FE]">{averageGoalProgress}%</div>
             <div className="grid grid-cols-2 gap-3 text-[11px] text-gray-600 dark:text-gray-300">
               <div className="rounded-2xl bg-gray-50 dark:bg-white/5 p-3">
-                <div className="font-semibold text-gray-900 dark:text-white">
-                  {completedGoals}
-                </div>
+                <div className="font-semibold text-gray-900 dark:text-white">{completedGoals}</div>
                 <div className="text-gray-500">Completed Goals</div>
               </div>
               <div className="rounded-2xl bg-gray-50 dark:bg-white/5 p-3">
-                <div className="font-semibold text-gray-900 dark:text-white">
-                  {linkedTaskCount}
-                </div>
+                <div className="font-semibold text-gray-900 dark:text-white">{linkedTaskCount}</div>
                 <div className="text-gray-500">Linked Tasks</div>
               </div>
             </div>
@@ -407,9 +379,7 @@ export default function AnalyticsView({
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     {/* Rank indicator */}
-                    <span
-                      className={`font-sora font-black text-sm w-4 text-center ${rankColor}`}
-                    >
+                    <span className={`font-sora font-black text-sm w-4 text-center ${rankColor}`}>
                       #{index + 1}
                     </span>
 
@@ -445,13 +415,8 @@ export default function AnalyticsView({
                   <div className="flex items-center gap-4 text-right">
                     {/* Daily Streaks indicator */}
                     <div className="flex items-center gap-1 bg-orange-500/10 text-orange-600 dark:text-orange-400 px-2 py-0.5 rounded-full h-fit">
-                      <Flame
-                        size={12}
-                        className="animate-pulse flex-shrink-0"
-                      />
-                      <span className="font-mono text-xs font-black">
-                        {stats.streak}d
-                      </span>
+                      <Flame size={12} className="animate-pulse flex-shrink-0" />
+                      <span className="font-mono text-xs font-black">{stats.streak}d</span>
                     </div>
 
                     <div className="space-y-0.5">
@@ -490,9 +455,7 @@ export default function AnalyticsView({
                         className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                         style={{ backgroundColor: g.color }}
                       />
-                      <span className="truncate text-gray-800 dark:text-gray-100">
-                        {g.name}
-                      </span>
+                      <span className="truncate text-gray-800 dark:text-gray-100">{g.name}</span>
                     </span>
                     <span className="text-[10px] font-mono text-gray-400 flex-shrink-0">
                       {g.done}/{g.total} Completed ({g.rate}%)
@@ -514,8 +477,8 @@ export default function AnalyticsView({
             <span className="font-bold text-[#5C27FE] inline-flex items-center gap-0.5 uppercase tracking-wider block mb-0.5">
               <Zap size={11} /> Next Sprint Sprint
             </span>
-            Complete tasks of high priority and due dates closer today to
-            rapidly enhance overall group coordinates.
+            Complete tasks of high priority and due dates closer today to rapidly enhance overall
+            group coordinates.
           </div>
         </div>
       </div>

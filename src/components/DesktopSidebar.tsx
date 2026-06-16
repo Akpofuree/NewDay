@@ -1,9 +1,4 @@
-import React, {
-  useRef,
-  type ChangeEvent,
-  type Dispatch,
-  type SetStateAction,
-} from "react";
+import React, { useRef, type ChangeEvent, type Dispatch, type SetStateAction } from "react";
 import { Task, Group, User } from "../types";
 import type { Metrics } from "../utils/taskFilters";
 import { apiFetch } from "../lib/api";
@@ -101,27 +96,27 @@ export default function DesktopSidebar({
     <aside className="hidden md:flex w-[260px] flex-shrink-0 h-screen sticky top-0 flex-col overflow-hidden p-5 z-20 sidebar-glass">
       <div className="flex h-full min-h-0 flex-col gap-6 overflow-hidden">
         <div className="flex-shrink-0 space-y-6">
-        <button
-          type="button"
-          onClick={scrollToTop}
-          className="flex items-center gap-2.5 focus:outline-none focus:ring-2 focus:ring-[#5C27FE]/40 rounded-full"
-          aria-label="Scroll to top"
-        >
-          <img
-            src={logoImage}
-            alt="NewDay logo"
-            className="h-20 w-20 object-contain cursor-pointer"
-          />
-          <span className="sr-only">NewDay</span>
-        </button>
+          <button
+            type="button"
+            onClick={scrollToTop}
+            className="flex items-center gap-2.5 focus:outline-none focus:ring-2 focus:ring-[#5C27FE]/40 rounded-full"
+            aria-label="Scroll to top"
+          >
+            <img
+              src={logoImage}
+              alt="NewDay logo"
+              className="h-20 w-20 object-contain cursor-pointer"
+            />
+            <span className="sr-only">NewDay</span>
+          </button>
 
-        <button
-          onClick={() => setIsNewTaskOpen(true)}
-          className="w-full py-2.5 rounded-xl bg-[#5C27FE] hover:bg-[#4a1ee3] active:scale-[0.98] text-white text-xs font-bold font-inter inline-flex items-center justify-center gap-2 transition-all shadow-md shadow-[#5C27FE]/20 hover:shadow-lg hover:shadow-[#5C27FE]/30 cursor-pointer"
-        >
-          <span>New Workspace Task</span>
-          <Plus size={14} />
-        </button>
+          <button
+            onClick={() => setIsNewTaskOpen(true)}
+            className="w-full py-2.5 rounded-xl bg-[#5C27FE] hover:bg-[#4a1ee3] active:scale-[0.98] text-white text-xs font-bold font-inter inline-flex items-center justify-center gap-2 transition-all shadow-md shadow-[#5C27FE]/20 hover:shadow-lg hover:shadow-[#5C27FE]/30 cursor-pointer"
+          >
+            <span>New Workspace Task</span>
+            <Plus size={14} />
+          </button>
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto space-y-4 pt-1 pr-1">
@@ -132,7 +127,7 @@ export default function DesktopSidebar({
             <nav className="space-y-1">
               <button
                 onClick={() => setActiveCategory("today")}
-                className={`group w-full flex items-center justify-between px-3 py-2 rounded-xl text-left text-xs font-semibold cursor-pointer transition-all duration-200 ${
+                className={`group w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-left text-xs font-semibold cursor-pointer transition-all duration-200 ${
                   activeCategory === "today"
                     ? "bg-white/80 dark:bg-white/10 shadow-sm border border-white/40 dark:border-white/10 text-[#5C27FE] dark:text-[#a085ff]"
                     : "text-gray-600 dark:text-gray-400 hover:bg-gray-200/40 dark:hover:bg-white/5"
@@ -154,7 +149,7 @@ export default function DesktopSidebar({
 
               <button
                 onClick={() => setActiveCategory("calendar")}
-                className={`group w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-xs font-semibold cursor-pointer transition-all duration-200 ${
+                className={`group w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left text-xs font-semibold cursor-pointer transition-all duration-200 ${
                   activeCategory === "calendar"
                     ? "bg-white/80 dark:bg-white/10 shadow-sm border border-white/40 dark:border-white/10 text-[#5C27FE] dark:text-[#a085ff]"
                     : "text-gray-600 dark:text-gray-400 hover:bg-gray-200/40 dark:hover:bg-white/5"
@@ -169,7 +164,7 @@ export default function DesktopSidebar({
 
               <button
                 onClick={() => setActiveCategory("my_tasks")}
-                className={`group w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-xs font-semibold cursor-pointer transition-all duration-200 ${
+                className={`group w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left text-xs font-semibold cursor-pointer transition-all duration-200 ${
                   activeCategory === "my_tasks"
                     ? "bg-white/80 dark:bg-white/10 shadow-sm border border-white/40 dark:border-white/10 text-[#5C27FE] dark:text-[#a085ff]"
                     : "text-gray-600 dark:text-gray-400 hover:bg-gray-200/40 dark:hover:bg-white/5"
@@ -184,7 +179,7 @@ export default function DesktopSidebar({
 
               <button
                 onClick={() => setActiveCategory("completed")}
-                className={`group w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-xs font-semibold cursor-pointer transition-all duration-200 ${
+                className={`group w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left text-xs font-semibold cursor-pointer transition-all duration-200 ${
                   activeCategory === "completed"
                     ? "bg-white/80 dark:bg-white/10 shadow-sm border border-white/40 dark:border-white/10 text-[#00C48C] dark:text-emerald-400"
                     : "text-gray-600 dark:text-gray-400 hover:bg-gray-200/40 dark:hover:bg-white/5"
@@ -199,7 +194,7 @@ export default function DesktopSidebar({
 
               <button
                 onClick={() => setActiveCategory("analytics")}
-                className={`group w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-xs font-semibold cursor-pointer transition-all duration-200 ${
+                className={`group w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left text-xs font-semibold cursor-pointer transition-all duration-200 ${
                   activeCategory === "analytics"
                     ? "bg-white/80 dark:bg-white/10 shadow-sm border border-white/40 dark:border-white/10 text-[#5C27FE] dark:text-[#a085ff]"
                     : "text-gray-600 dark:text-gray-400 hover:bg-gray-200/40 dark:hover:bg-white/5"
@@ -214,7 +209,7 @@ export default function DesktopSidebar({
 
               <button
                 onClick={() => setActiveCategory("goals")}
-                className={`group w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-xs font-semibold cursor-pointer transition-all duration-200 ${
+                className={`group w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left text-xs font-semibold cursor-pointer transition-all duration-200 ${
                   activeCategory === "goals"
                     ? "bg-white/80 dark:bg-white/10 shadow-sm border border-white/40 dark:border-white/10 text-[#FF4D4D] dark:text-[#ff7373]"
                     : "text-gray-600 dark:text-gray-400 hover:bg-gray-200/40 dark:hover:bg-white/5"
@@ -229,7 +224,7 @@ export default function DesktopSidebar({
 
               <button
                 onClick={() => setActiveCategory("chat")}
-                className={`group w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-xs font-semibold cursor-pointer transition-all duration-200 ${
+                className={`group w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left text-xs font-semibold cursor-pointer transition-all duration-200 ${
                   activeCategory === "chat"
                     ? "bg-white/80 dark:bg-white/10 shadow-sm border border-white/40 dark:border-white/10 text-[#0EA5E9] dark:text-[#38bcfc]"
                     : "text-gray-600 dark:text-gray-400 hover:bg-gray-200/40 dark:hover:bg-white/5"
@@ -244,7 +239,7 @@ export default function DesktopSidebar({
 
               <button
                 onClick={() => setActiveCategory("settings")}
-                className={`group w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-xs font-semibold cursor-pointer transition-all duration-200 ${
+                className={`group w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left text-xs font-semibold cursor-pointer transition-all duration-200 ${
                   activeCategory === "settings"
                     ? "bg-white/80 dark:bg-white/10 shadow-sm border border-white/40 dark:border-white/10 text-[#5C27FE] dark:text-[#a085ff]"
                     : "text-gray-600 dark:text-gray-400 hover:bg-gray-200/40 dark:hover:bg-white/5"
@@ -278,7 +273,7 @@ export default function DesktopSidebar({
                 <button
                   key={g.id}
                   onClick={() => setActiveCategory(g.id)}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left text-xs font-semibold cursor-pointer transition-all duration-200 ${
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-left text-xs font-semibold cursor-pointer transition-all duration-200 ${
                     activeCategory === g.id
                       ? "bg-white/80 dark:bg-white/10 shadow-xs border border-white/40 dark:border-white/10 text-[#5C27FE] dark:text-[#a085ff]"
                       : "text-gray-600 dark:text-gray-400 hover:bg-gray-200/40 dark:hover:bg-white/5"
@@ -292,11 +287,7 @@ export default function DesktopSidebar({
                     <span className="truncate">{g.name}</span>
                   </span>
                   <span className="text-[9px] text-gray-400 font-mono font-bold">
-                    {
-                      tasks.filter(
-                        (t) => t.groupId === g.id && t.status !== "completed",
-                      ).length
-                    }
+                    {tasks.filter((t) => t.groupId === g.id && t.status !== "completed").length}
                   </span>
                 </button>
               ))}
@@ -304,26 +295,10 @@ export default function DesktopSidebar({
           </div>
         </div>
 
-        <div className="flex-shrink-0 mt-auto space-y-4 pt-4 border-t border-gray-100 dark:border-white/5">
-          <div className="flex flex-col gap-2 p-2.5 rounded-xl bg-gray-100/60 dark:bg-white/5 border border-transparent dark:border-white/5">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
-                Visual Theme
-              </span>
-              <button
-                type="button"
-                onClick={() => setDarkMode(!darkMode)}
-                className="p-1.5 rounded-lg text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white hover:bg-white dark:hover:bg-white/5 shadow-xs cursor-pointer"
-                title={darkMode ? "Switch to Light" : "Switch to Dark"}
-              >
-                {darkMode ? <Sun size={13} /> : <Moon size={13} />}
-              </button>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between group/user relative">
+        <div className="flex-shrink-0 mt-auto pt-3 border-t border-gray-100 dark:border-white/5">
+          <div className="flex items-center justify-between gap-2">
             <div
-              className="flex items-center gap-2.5 min-w-0 mr-1.5 cursor-pointer"
+              className="flex items-center gap-2 min-w-0 cursor-pointer"
               onClick={handleAvatarClick}
               title="Click to upload avatar"
             >
@@ -338,62 +313,50 @@ export default function DesktopSidebar({
                 <img
                   src={currentUser.avatarUrl}
                   alt={currentUser.name}
-                  className="w-10 h-10 sm:w-12 sm:h-12 rounded-full border border-white/65 object-cover"
+                  className="w-8 h-8 rounded-full border border-white/65 object-cover flex-shrink-0"
                   referrerPolicy="no-referrer"
                 />
               ) : (
-                <div className="w-8 h-8 rounded-full flex items-center justify-center bg-gradient-to-tr from-[#5C27FE] to-[#0EA5E9] text-white font-bold">
+                <div className="w-8 h-8 rounded-full flex items-center justify-center bg-gradient-to-tr from-[#5C27FE] to-[#0EA5E9] text-white font-bold flex-shrink-0">
                   {(() => {
                     const parts = currentUser.name.split(" ").filter(Boolean);
                     const initials =
-                      (parts[0]?.[0] || "").toUpperCase() +
-                      (parts[1]?.[0] || "").toUpperCase();
+                      (parts[0]?.[0] || "").toUpperCase() + (parts[1]?.[0] || "").toUpperCase();
                     return initials;
                   })()}
                 </div>
               )}
-              <div className="min-w-0 text-left">
-                <div className="text-xs font-bold text-gray-900 dark:text-white truncate">
+              <div className="min-w-0">
+                <div className="text-[10px] font-bold text-gray-900 dark:text-white truncate">
                   {currentUser.name}
-                </div>
-                <div className="text-[10px] text-gray-400 truncate">
-                  Active Member
                 </div>
               </div>
             </div>
 
-            {avatarError && (
-              <div className="text-[10px] text-red-500 dark:text-red-400 truncate w-full">
-                {avatarError}
-              </div>
-            )}
-
-            <button
-              onClick={handleLogout}
-              title="Sign Out / Switch Profile"
-              className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 flex-shrink-0 cursor-pointer"
-            >
-              <LogOut size={13} />
-            </button>
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => setDarkMode(!darkMode)}
+                className="p-1.5 rounded-lg text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white hover:bg-white dark:hover:bg-white/5 cursor-pointer"
+                title={darkMode ? "Switch to Light" : "Switch to Dark"}
+              >
+                {darkMode ? <Sun size={12} /> : <Moon size={12} />}
+              </button>
+              <button
+                onClick={handleLogout}
+                title="Sign Out"
+                className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 cursor-pointer"
+              >
+                <LogOut size={12} />
+              </button>
+            </div>
           </div>
 
-          <div className="pt-3 border-t border-gray-100 dark:border-white/5">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-2 mb-1.5">
-              Legal
-            </p>
-            <a
-              href="/terms"
-              className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-xs font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-200/40 dark:hover:bg-white/5 hover:text-gray-800 dark:hover:text-white transition-all duration-200"
-            >
-              Terms of Service
-            </a>
-            <a
-              href="/privacy"
-              className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-xs font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-200/40 dark:hover:bg-white/5 hover:text-gray-800 dark:hover:text-white transition-all duration-200"
-            >
-              Privacy Policy
-            </a>
-          </div>
+          {avatarError && (
+            <div className="text-[9px] text-red-500 dark:text-red-400 truncate mt-1">
+              {avatarError}
+            </div>
+          )}
         </div>
       </div>
     </aside>

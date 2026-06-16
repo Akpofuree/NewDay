@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Sparkles,
@@ -37,17 +37,15 @@ import LogoLoader from "./animations/LogoLoader";
 import BorderGlow from "./BorderGlow";
 import Particles from "./Particles";
 import Hero from "./landing/Hero";
-import FocusAnalyticsSection from "./landing/FocusAnalyticsSection";
-import TestimonialsSection from "./landing/TestimonialsSection";
+const FocusAnalyticsSection = lazy(() => import("./landing/FocusAnalyticsSection"));
+const TestimonialsSection = lazy(() => import("./landing/TestimonialsSection"));
 import { AnimatedList } from "../registry/magicui/animated-list";
 import useDarkMode from "../hooks/useDarkMode";
 import ChromaGrid from "./ChromaGrid";
 import { User } from "../types";
 const logoImage = new URL("../images/logo.png", import.meta.url).href;
 import { apiFetch } from "../lib/api";
-import PasswordStrengthIndicator, {
-  isPasswordStrong,
-} from "./PasswordStrengthIndicator";
+import PasswordStrengthIndicator, { isPasswordStrong } from "./PasswordStrengthIndicator";
 
 interface LandingPageProps {
   onAuthSuccess: (user: User) => void;
@@ -66,9 +64,7 @@ export default function LandingPage({
 }: LandingPageProps) {
   // Auth Drawer States
   const [isAuthOpen, setIsAuthOpen] = useState(false);
-  const [authMode, setAuthMode] = useState<
-    "login" | "signup" | "reset" | "reset-confirm"
-  >("login");
+  const [authMode, setAuthMode] = useState<"login" | "signup" | "reset" | "reset-confirm">("login");
   const [resetConfirmToken, setResetConfirmToken] = useState("");
 
   // Auth Form State Inputs
@@ -79,26 +75,16 @@ export default function LandingPage({
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [resetSuccess, setResetSuccess] = useState("");
-  const [googleClientId, setGoogleClientId] = useState("");
-  const [googleReady, setGoogleReady] = useState(false);
   const [lockoutSeconds, setLockoutSeconds] = useState<number | null>(null);
   const [isPermanentLock, setIsPermanentLock] = useState(false);
 
   // Interactive Live Mockup Panel States
-  const [demoSelectedPriority, setDemoSelectedPriority] = useState<
-    "high" | "medium" | "low"
-  >("high");
-  const [demoCompletedSteps, setDemoCompletedSteps] = useState<boolean[]>([
-    true,
-    false,
-    false,
-  ]);
-  const [activeTab, setActiveTab] = useState<"preview" | "schema" | "terminal">(
-    "preview",
+  const [demoSelectedPriority, setDemoSelectedPriority] = useState<"high" | "medium" | "low">(
+    "high"
   );
-  const [simulatedLayout, setSimulatedLayout] = useState<"desktop" | "mobile">(
-    "desktop",
-  );
+  const [demoCompletedSteps, setDemoCompletedSteps] = useState<boolean[]>([true, false, false]);
+  const [activeTab, setActiveTab] = useState<"preview" | "schema" | "terminal">("preview");
+  const [simulatedLayout, setSimulatedLayout] = useState<"desktop" | "mobile">("desktop");
   const [mockCollaboratorCount, setMockCollaboratorCount] = useState(3);
   const [typedMessage, setTypedMessage] = useState("");
   const [faqActiveIndex, setFaqActiveIndex] = useState<number | null>(null);
@@ -119,10 +105,8 @@ export default function LandingPage({
     },
   ]);
 
-  const [founderTab, setFounderTab] = useState<
-    "vision" | "journey" | "manifest"
-  >("vision");
-  const [imgSrc, setImgSrc] = useState("/founder.png");
+  const [founderTab, setFounderTab] = useState<"vision" | "journey" | "manifest">("vision");
+  const founderImage = new URL("../images/IMG_3063 (1).jpg", import.meta.url).href;
   const [imgErr, setImgErr] = useState(false);
 
   // theme detection hook (SSR-safe)
@@ -160,7 +144,7 @@ export default function LandingPage({
         const next = prev + (Math.random() > 0.5 ? 1 : -1);
         return Math.max(2, Math.min(6, next));
       });
-    }, 4000);
+    }, 8000);
     return () => clearInterval(interVal);
   }, []);
 
@@ -197,62 +181,6 @@ export default function LandingPage({
   }, [onAuthSuccess]);
 
   useEffect(() => {
-    apiFetch("/api/auth/providers")
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data?.google?.clientId) {
-          setGoogleClientId(data.google.clientId);
-        }
-      })
-      .catch(() => undefined);
-  }, []);
-
-  useEffect(() => {
-    if (!googleClientId) return;
-    const existing = document.querySelector<HTMLScriptElement>(
-      'script[src="https://accounts.google.com/gsi/client"]',
-    );
-    const configureGoogle = () => {
-      const google = (window as any).google;
-      if (!google?.accounts?.id) return;
-      google.accounts.id.initialize({
-        client_id: googleClientId,
-        callback: async (response: { credential?: string }) => {
-          if (!response.credential) return;
-          setError("");
-          setLoading(true);
-          try {
-            const res = await apiFetch("/api/auth/google", {
-              method: "POST",
-              body: JSON.stringify({ idToken: response.credential }),
-            });
-            const data = await res.json();
-            if (!res.ok) {
-              throw new Error(data.error || "Google authentication failed.");
-            }
-            onAuthSuccess(data.user || data);
-          } catch (err: any) {
-            setError(err.message || "Google authentication failed.");
-          } finally {
-            setLoading(false);
-          }
-        },
-      });
-      setGoogleReady(true);
-    };
-    if (existing) {
-      configureGoogle();
-      return;
-    }
-    const script = document.createElement("script");
-    script.src = "https://accounts.google.com/gsi/client";
-    script.async = true;
-    script.defer = true;
-    script.onload = configureGoogle;
-    document.head.appendChild(script);
-  }, [googleClientId, onAuthSuccess]);
-
-  useEffect(() => {
     if (lockoutSeconds === null || lockoutSeconds <= 0) return;
     const timer = setInterval(() => {
       setLockoutSeconds((prev) => (prev !== null && prev > 0 ? prev - 1 : 0));
@@ -271,9 +199,7 @@ export default function LandingPage({
     }
 
     focusIntervalRef.current = setInterval(() => {
-      setFocusCounterSeconds((prev) =>
-        prev > 0 ? prev - 1 : focusSelectedPeriod * 60,
-      );
+      setFocusCounterSeconds((prev) => (prev > 0 ? prev - 1 : focusSelectedPeriod * 60));
     }, 1000);
 
     return () => {
@@ -336,9 +262,7 @@ export default function LandingPage({
         });
         const data = await response.json();
         if (!response.ok) {
-          throw new Error(
-            data.errors?.join(" ") || data.error || "Failed to reset password.",
-          );
+          throw new Error(data.errors?.join(" ") || data.error || "Failed to reset password.");
         }
         setResetSuccess("Password updated. You can now sign in.");
         setAuthMode("login");
@@ -358,8 +282,7 @@ export default function LandingPage({
           if (ct.includes("text/html")) {
             const text = await response.text();
             throw new Error(
-              "Server returned HTML instead of JSON. Is the backend running? " +
-                text.slice(0, 200),
+              "Server returned HTML instead of JSON. Is the backend running? " + text.slice(0, 200)
             );
           }
         }
@@ -367,9 +290,7 @@ export default function LandingPage({
         if (!response.ok) {
           throw new Error(data.error || "Failed to reset password.");
         }
-        setResetSuccess(
-          data.message || "If that email exists, a reset link will be sent.",
-        );
+        setResetSuccess(data.message || "If that email exists, a reset link will be sent.");
         setAuthMode("login");
         setPassword("");
       } else if (authMode === "signup") {
@@ -389,23 +310,18 @@ export default function LandingPage({
           if (ct.includes("text/html")) {
             const text = await response.text();
             throw new Error(
-              "Server returned HTML instead of JSON. Is the backend running? " +
-                text.slice(0, 200),
+              "Server returned HTML instead of JSON. Is the backend running? " + text.slice(0, 200)
             );
           }
         }
         const data = await response.json();
         if (!response.ok) {
           throw new Error(
-            data.errors?.join(" ") ||
-              data.error ||
-              "Failed to establish workspace account.",
+            data.errors?.join(" ") || data.error || "Failed to establish workspace account."
           );
         }
         if (data.requiresVerification) {
-          setResetSuccess(
-            data.message || "Check your email to verify your account.",
-          );
+          setResetSuccess(data.message || "Check your email to verify your account.");
           setAuthMode("login");
         } else {
           onAuthSuccess(data.user || data);
@@ -424,7 +340,7 @@ export default function LandingPage({
               method: "POST",
               body: JSON.stringify({ email, password }),
             },
-            { retryOn429: false },
+            { retryOn429: false }
           );
         } catch {
           throw new Error("Server unavailable — please try again later");
@@ -434,8 +350,7 @@ export default function LandingPage({
         if (ct.includes("text/html")) {
           const text = await response.text();
           throw new Error(
-            "Server returned HTML instead of JSON. Is the backend running? " +
-              text.slice(0, 200),
+            "Server returned HTML instead of JSON. Is the backend running? " + text.slice(0, 200)
           );
         }
 
@@ -446,14 +361,9 @@ export default function LandingPage({
             setError(formatLockoutMessage(data.retryAfterSeconds));
             return;
           }
-          if (
-            response.status === 403 &&
-            data.code === "ACCOUNT_PERMANENTLY_LOCKED"
-          ) {
+          if (response.status === 403 && data.code === "ACCOUNT_PERMANENTLY_LOCKED") {
             setIsPermanentLock(true);
-            setError(
-              data.error || "Account permanently locked — contact support",
-            );
+            setError(data.error || "Account permanently locked — contact support");
             return;
           }
           throw new Error(data.error || "Invalid email or password");
@@ -471,19 +381,8 @@ export default function LandingPage({
     }
   };
 
-  const startGoogleAuth = () => {
-    const google = (window as any).google;
-    if (!googleReady || !google?.accounts?.id) {
-      setError("Google Sign In is still loading. Try again in a moment.");
-      return;
-    }
-    google.accounts.id.prompt();
-  };
-
   const completedCount = demoCompletedSteps.filter(Boolean).length;
-  const percentComplete = Math.round(
-    (completedCount / demoCompletedSteps.length) * 100,
-  );
+  const percentComplete = Math.round((completedCount / demoCompletedSteps.length) * 100);
 
   const scrollToTop = () => {
     if (typeof window !== "undefined") {
@@ -581,9 +480,7 @@ export default function LandingPage({
               <>
                 <span className="hidden lg:inline-flex text-xs font-semibold text-gray-500 dark:text-gray-400">
                   Welcome,{" "}
-                  <strong className="text-gray-900 dark:text-white ml-1">
-                    {currentUser.name}
-                  </strong>
+                  <strong className="text-gray-900 dark:text-white ml-1">{currentUser.name}</strong>
                 </span>
                 <button
                   onClick={onEnterDashboard}
@@ -615,33 +512,6 @@ export default function LandingPage({
                   <span>Get Started</span>
                   <ArrowRight size={13} />
                 </button>
-
-                {/* Terms and Privacy Links */}
-                <div className="hidden sm:flex items-center gap-2">
-                  <button
-                    onClick={() => {
-                      if (typeof window !== "undefined") {
-                        window.history.pushState({}, "", "/terms");
-                        window.location.reload();
-                      }
-                    }}
-                    className="text-xs font-semibold text-gray-600 dark:text-gray-400 hover:text-[#5C27FE] dark:hover:text-[#a085ff] transition-all hover:scale-105 cursor-pointer"
-                  >
-                    Terms
-                  </button>
-                  <span className="text-gray-300 dark:text-gray-600">•</span>
-                  <button
-                    onClick={() => {
-                      if (typeof window !== "undefined") {
-                        window.history.pushState({}, "", "/privacy");
-                        window.location.reload();
-                      }
-                    }}
-                    className="text-xs font-semibold text-gray-600 dark:text-gray-400 hover:text-[#5C27FE] dark:hover:text-[#a085ff] transition-all hover:scale-105 cursor-pointer"
-                  >
-                    Privacy
-                  </button>
-                </div>
               </>
             )}
           </div>
@@ -670,9 +540,8 @@ export default function LandingPage({
             Experience NewDay directly in your browser
           </p>
           <p className="text-xs text-slate-600 dark:text-slate-200 max-w-lg mx-auto mt-2">
-            No credentials required to test. Use this sandbox simulation to
-            experience our microtask interactions, custom statuses, and
-            interactive layouts.
+            No credentials required to test. Use this sandbox simulation to experience our microtask
+            interactions, custom statuses, and interactive layouts.
           </p>
         </div>
 
@@ -716,9 +585,7 @@ export default function LandingPage({
                   <button
                     type="button"
                     onClick={() =>
-                      setSimulatedLayout(
-                        simulatedLayout === "desktop" ? "mobile" : "desktop",
-                      )
+                      setSimulatedLayout(simulatedLayout === "desktop" ? "mobile" : "desktop")
                     }
                     className="w-full flex items-center justify-between p-2.5 rounded-xl text-left bg-white dark:bg-slate-950/60 border border-gray-200/50 dark:border-white/5 hover:border-[#5C27FE]/30 transition-all shadow-xs cursor-pointer text-xs"
                   >
@@ -747,11 +614,7 @@ export default function LandingPage({
                       </span>
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={() =>
-                            setMockCollaboratorCount((prev) =>
-                              Math.max(1, prev - 1),
-                            )
-                          }
+                          onClick={() => setMockCollaboratorCount((prev) => Math.max(1, prev - 1))}
                           className="w-6 h-6 rounded bg-gray-100 dark:bg-white/5 flex items-center justify-center font-bold text-[13px] text-gray-500 cursor-pointer"
                         >
                           -
@@ -760,11 +623,7 @@ export default function LandingPage({
                           {mockCollaboratorCount}
                         </span>
                         <button
-                          onClick={() =>
-                            setMockCollaboratorCount((prev) =>
-                              Math.min(8, prev + 1),
-                            )
-                          }
+                          onClick={() => setMockCollaboratorCount((prev) => Math.min(8, prev + 1))}
                           className="w-6 h-6 rounded bg-gray-100 dark:bg-white/5 flex items-center justify-center font-bold text-[13px] text-gray-500 cursor-pointer"
                         >
                           +
@@ -807,9 +666,7 @@ export default function LandingPage({
               <div className="mt-6 pt-4 border-t border-gray-200/60 dark:border-white/5 space-y-2">
                 <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
                   <Activity size={12} className="text-[#0EA5E9]" />
-                  <span className="font-mono text-[10px]">
-                    Sync Status: 24ms latency
-                  </span>
+                  <span className="font-mono text-[10px]">Sync Status: 24ms latency</span>
                 </div>
                 <button
                   onClick={() => {
@@ -840,27 +697,25 @@ export default function LandingPage({
 
                   {/* Device mock dynamic peers */}
                   <div className="flex items-center -space-x-1.5">
-                    {Array.from({ length: mockCollaboratorCount }).map(
-                      (_, i) => {
-                        const colors = [
-                          "bg-[#5C27FE]",
-                          "bg-[#0EA5E9]",
-                          "bg-[#FF4D4D]",
-                          "bg-[#FFB020]",
-                          "bg-emerald-500",
-                          "bg-pink-500",
-                        ];
-                        const chosenColor = colors[i % colors.length];
-                        return (
-                          <div
-                            key={i}
-                            className={`w-5 h-5 rounded-full ${chosenColor} flex items-center justify-center text-[7px] font-bold text-white border-2 border-white dark:border-slate-900 ring-1 ring-offset-1 ring-indigo-500/20`}
-                          >
-                            {String.fromCharCode(65 + i)}
-                          </div>
-                        );
-                      },
-                    )}
+                    {Array.from({ length: mockCollaboratorCount }).map((_, i) => {
+                      const colors = [
+                        "bg-[#5C27FE]",
+                        "bg-[#0EA5E9]",
+                        "bg-[#FF4D4D]",
+                        "bg-[#FFB020]",
+                        "bg-emerald-500",
+                        "bg-pink-500",
+                      ];
+                      const chosenColor = colors[i % colors.length];
+                      return (
+                        <div
+                          key={i}
+                          className={`w-5 h-5 rounded-full ${chosenColor} flex items-center justify-center text-[7px] font-bold text-white border-2 border-white dark:border-slate-900 ring-1 ring-offset-1 ring-indigo-500/20`}
+                        >
+                          {String.fromCharCode(65 + i)}
+                        </div>
+                      );
+                    })}
                     <div className="text-[8px] font-bold pl-2 text-indigo-500 animate-pulse">
                       Live peers
                     </div>
@@ -910,9 +765,8 @@ export default function LandingPage({
                     </h3>
 
                     <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-relaxed mb-4">
-                      Coordinate dynamic microtask checkboxes. Check off the
-                      steps below to watch the custom live progress metrics
-                      update in synchronized speed.
+                      Coordinate dynamic microtask checkboxes. Check off the steps below to watch
+                      the custom live progress metrics update in synchronized speed.
                     </p>
 
                     {/* interactive checkboxes */}
@@ -999,9 +853,7 @@ export default function LandingPage({
                           <span className="font-bold text-gray-700 dark:text-gray-300 shrink-0">
                             {m.user}:
                           </span>
-                          <span className="text-gray-500 dark:text-gray-400">
-                            {m.text}
-                          </span>
+                          <span className="text-gray-500 dark:text-gray-400">{m.text}</span>
                         </div>
                       ))}
                     </div>
@@ -1061,8 +913,8 @@ export default function LandingPage({
             Why developers coordinate on NewDay
           </p>
           <p className="text-xs text-slate-650 dark:text-slate-200 max-w-lg mx-auto mt-2">
-            Durable collaborative architecture designed prioritizing rendering
-            metrics, real interaction state, and zero empty simulated screens.
+            Durable collaborative architecture designed prioritizing rendering metrics, real
+            interaction state, and zero empty simulated screens.
           </p>
         </div>
 
@@ -1081,10 +933,9 @@ export default function LandingPage({
                 No Mockups. Secure Server-Side Firebase Synchronization.
               </h3>
               <p className="text-xs lg:text-sm text-slate-700 dark:text-slate-100 leading-relaxed font-normal">
-                Most task templates use mock database states that reset on page
-                reload. NewDay builds an actual server-side SQLite/Firestore
-                bridging sync pipeline, allowing team actions to persist,
-                synchronize, and update dynamically in under 30ms latency.
+                Most task templates use mock database states that reset on page reload. NewDay
+                builds an actual server-side SQLite/Firestore bridging sync pipeline, allowing team
+                actions to persist, synchronize, and update dynamically in under 30ms latency.
               </p>
             </div>
 
@@ -1109,10 +960,9 @@ export default function LandingPage({
                 Responsive Layout Tuning
               </h3>
               <p className="text-xs lg:text-sm text-slate-700 dark:text-slate-100 leading-relaxed font-normal">
-                Choose how your screen organizes itself. Switch natively between
-                an iOS-inspired bottom floating system-dock or a fluid top
-                horizontal navigation array. Perfect for tablets, phones, and
-                full desktop monitors.
+                Choose how your screen organizes itself. Switch natively between an iOS-inspired
+                bottom floating system-dock or a fluid top horizontal navigation array. Perfect for
+                tablets, phones, and full desktop monitors.
               </p>
             </div>
 
@@ -1139,10 +989,9 @@ export default function LandingPage({
                 AI Mentor Roadmap Generator
               </h3>
               <p className="text-xs lg:text-sm text-slate-700 dark:text-slate-100 leading-relaxed font-normal">
-                Connect directly with our server-hosted Gemini AI models. Prompt
-                any target learning concept (e.g., "Full-Stack React", "Data
-                Structures") and receive custom modular roadmap guides, with
-                checklists, priority badges, and description breakdowns.
+                Connect directly with our server-hosted Gemini AI models. Prompt any target learning
+                concept (e.g., "Full-Stack React", "Data Structures") and receive custom modular
+                roadmap guides, with checklists, priority badges, and description breakdowns.
               </p>
             </div>
 
@@ -1164,10 +1013,9 @@ export default function LandingPage({
                 Comprehensive Team Analytics & Collaborative Synergy
               </h3>
               <p className="text-xs lg:text-sm text-slate-700 dark:text-slate-100 leading-relaxed font-normal">
-                Never lose track of strategic priorities. Access live stats on
-                completed daily streaks, overdue task limits, and active peer
-                participation tracks. Complete milestone targets alongside peers
-                inside a sleek collaborative matrix.
+                Never lose track of strategic priorities. Access live stats on completed daily
+                streaks, overdue task limits, and active peer participation tracks. Complete
+                milestone targets alongside peers inside a sleek collaborative matrix.
               </p>
             </div>
 
@@ -1176,8 +1024,7 @@ export default function LandingPage({
                 <Check size={12} className="text-[#FFB020]" /> Streaks Tracker
               </span>
               <span className="flex items-center gap-1.5">
-                <Check size={12} className="text-[#FFB020]" /> Overdue
-                Protection
+                <Check size={12} className="text-[#FFB020]" /> Overdue Protection
               </span>
             </div>
           </div>
@@ -1199,10 +1046,9 @@ export default function LandingPage({
             </h2>
 
             <p className="text-xs lg:text-sm text-slate-805 dark:text-slate-50 leading-relaxed font-normal">
-              NewDay combines actual discussion channels and customizable action
-              slates on one single page. No more switching tools to ask a
-              status. Map tasks directly to chat context channels so everyone
-              stays synced in double-digit latency metrics.
+              NewDay combines actual discussion channels and customizable action slates on one
+              single page. No more switching tools to ask a status. Map tasks directly to chat
+              context channels so everyone stays synced in double-digit latency metrics.
             </p>
 
             <ul className="space-y-2 text-xs text-slate-700 dark:text-slate-100 font-medium">
@@ -1216,9 +1062,7 @@ export default function LandingPage({
               </li>
               <li className="flex items-center gap-2">
                 <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full shrink-0" />
-                <span>
-                  Instant status tags highlighting overdue safety indicators
-                </span>
+                <span>Instant status tags highlighting overdue safety indicators</span>
               </li>
             </ul>
           </div>
@@ -1237,17 +1081,15 @@ export default function LandingPage({
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-xs font-extrabold text-gray-800 dark:text-gray-200">
                       Alex R.{" "}
-                      <span className="text-[9px] font-normal text-gray-400">
-                        10 mins ago
-                      </span>
+                      <span className="text-[9px] font-normal text-gray-400">10 mins ago</span>
                     </span>
                     <span className="text-[8px] font-mono bg-indigo-500/10 text-[#5C27FE] dark:text-[#a085ff] px-1.5 py-0.5 rounded font-bold">
                       Marketing Team Lead
                     </span>
                   </div>
                   <p className="text-[11px] text-gray-600 dark:text-gray-300">
-                    Is the campaign task synced to other tablets yet? The layout
-                    fits perfectly fine on standard monitors.
+                    Is the campaign task synced to other tablets yet? The layout fits perfectly fine
+                    on standard monitors.
                   </p>
                 </div>
 
@@ -1255,18 +1097,15 @@ export default function LandingPage({
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-xs font-extrabold text-gray-800 dark:text-gray-200">
                       Sarah K.{" "}
-                      <span className="text-[9px] font-normal text-gray-400">
-                        8 mins ago
-                      </span>
+                      <span className="text-[9px] font-normal text-gray-400">8 mins ago</span>
                     </span>
                     <span className="text-[8px] font-mono bg-[#FFB020]/10 text-[#FFB020] px-1.5 py-0.5 rounded font-bold">
                       Workspace Creator
                     </span>
                   </div>
                   <p className="text-[11px] text-gray-600 dark:text-gray-300 leading-relaxed">
-                    Yes! Dual responsive docking maps are fully responsive now.
-                    iPad views scale down perfectly to stack navigation columns
-                    beautifully.
+                    Yes! Dual responsive docking maps are fully responsive now. iPad views scale
+                    down perfectly to stack navigation columns beautifully.
                   </p>
                 </div>
 
@@ -1280,15 +1119,19 @@ export default function LandingPage({
         </div>
       </section>
 
-      <FocusAnalyticsSection
-        focusCounterSeconds={focusCounterSeconds}
-        focusSelectedPeriod={focusSelectedPeriod}
-        focusStatusActive={focusStatusActive}
-        percentComplete={percentComplete}
-        onToggleFocusStatus={toggleFocusStatus}
-      />
+      <Suspense fallback={null}>
+        <FocusAnalyticsSection
+          focusCounterSeconds={focusCounterSeconds}
+          focusSelectedPeriod={focusSelectedPeriod}
+          focusStatusActive={focusStatusActive}
+          percentComplete={percentComplete}
+          onToggleFocusStatus={toggleFocusStatus}
+        />
+      </Suspense>
 
-      <TestimonialsSection />
+      <Suspense fallback={null}>
+        <TestimonialsSection />
+      </Suspense>
 
       {/* FREQUENTLY ASKED QUESTIONS SECTION */}
       <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16 relative z-10 border-t border-gray-250/30 dark:border-white/5">
@@ -1300,8 +1143,7 @@ export default function LandingPage({
             Frequently Asked Questions
           </h2>
           <p className="text-xs text-gray-500 dark:text-gray-400 max-w-md mx-auto mt-2">
-            Everything you need to know about the NewDay secure full-stack
-            collaborative tasks desk.
+            Everything you need to know about the NewDay secure full-stack collaborative tasks desk.
           </p>
         </div>
 
@@ -1355,6 +1197,7 @@ export default function LandingPage({
                       animate={{ height: "auto", opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
                       transition={{ duration: 0.2 }}
+                      style={{ willChange: "height, opacity" }}
                     >
                       <div className="p-4.5 sm:p-5 pt-0 border-t border-gray-150/40 dark:border-white/5 text-xs text-gray-600 dark:text-gray-300 leading-relaxed bg-gray-50/50 dark:bg-black/10">
                         {item.a}
@@ -1381,8 +1224,7 @@ export default function LandingPage({
             Meet the Founder
           </h2>
           <p className="text-xs text-slate-650 dark:text-slate-300 max-w-lg mx-auto mt-2">
-            The engineering philosophy and craft dedication behind the NewDay
-            collaboration canvas.
+            The engineering philosophy and craft dedication behind the NewDay collaboration canvas.
           </p>
         </div>
 
@@ -1412,7 +1254,7 @@ export default function LandingPage({
                 {/* Image with fallback error handling */}
                 {!imgErr ? (
                   <img
-                    src={logoImage}
+                    src={founderImage}
                     alt="Portrait of Akpofure Diegbe"
                     className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-300"
                     onError={() => setImgErr(true)}
@@ -1460,8 +1302,8 @@ export default function LandingPage({
                         Akpofure Diegbe
                       </span>
                       <span className="text-[8px] text-gray-400 font-mono italic text-center max-w-xs">
-                        Ready to render portrait: place "founder.png" in your
-                        project files to display.
+                        Ready to render portrait: place "founder.png" in your project files to
+                        display.
                       </span>
                     </div>
 
@@ -1476,15 +1318,6 @@ export default function LandingPage({
                 )}
               </div>
             </BorderGlow>
-
-            {/* Absolute Corner Badges representing the layout filters */}
-            <div
-              className="absolute top-3.5 left-3.5 px-2.5 py-1 rounded-full bg-black/75 backdrop-blur-md text-[9px] font-bold text-white border border-white/10 flex items-center gap-1.5 select-none font-mono"
-              id="filter-badge"
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span>CHOSEN: MONOCHROME FILTER</span>
-            </div>
 
             <div className="text-center mt-3" id="profile-tag">
               <span className="text-[10px] uppercase font-bold tracking-widest text-gray-400 dark:text-slate-400 font-mono block">
@@ -1507,8 +1340,8 @@ export default function LandingPage({
                 High-Craft Engineering
               </h3>
               <p className="text-xs text-slate-700 dark:text-slate-300">
-                Tap each card tab to see how Akpofure's core goals shape
-                NewDay's visual and performance boundaries.
+                Tap each card tab to see how Akpofure's core goals shape NewDay's visual and
+                performance boundaries.
               </p>
             </div>
 
@@ -1558,26 +1391,23 @@ export default function LandingPage({
                     exit={{ opacity: 0, y: -10 }}
                     transition={{ duration: 0.2 }}
                     className="space-y-4"
+                    style={{ willChange: "transform, opacity" }}
                   >
                     <h4 className="font-extrabold text-sm sm:text-base text-slate-950 dark:text-white leading-snug">
-                      "We didn't build another task list. We built a workspace
-                      that respects your attention."
+                      "We didn't build another task list. We built a workspace that respects your
+                      attention."
                     </h4>
 
                     <p className="text-xs sm:text-sm text-slate-705 dark:text-slate-150 leading-relaxed font-normal">
-                      NewDay was born out of a simple frustration: modern team
-                      tools are noisy, cluttered with unnecessary simulated
-                      states, and prioritize visual busywork over deep work.
-                      Akpofure set out to construct a durable, zero-mock
-                      collaboration desktop. A workspace that binds discussion
-                      channels to task states under 30ms, letting you mute outer
-                      workspace distractions and execute in perfect mental flow.
+                      NewDay was born out of a simple frustration: modern team tools are noisy,
+                      cluttered with unnecessary simulated states, and prioritize visual busywork
+                      over deep work. Akpofure set out to construct a durable, zero-mock
+                      collaboration desktop. A workspace that binds discussion channels to task
+                      states under 30ms, letting you mute outer workspace distractions and execute
+                      in perfect mental flow.
                     </p>
 
-                    <div
-                      className="flex flex-wrap gap-2 pt-2"
-                      id="badges-vision"
-                    >
+                    <div className="flex flex-wrap gap-2 pt-2" id="badges-vision">
                       <span className="px-2 py-1 rounded bg-[#5C27FE]/10 dark:bg-[#5C27FE]/15 text-[#5C27FE] dark:text-[#a085ff] text-[10px] font-bold font-mono">
                         [Latency-Focused]
                       </span>
@@ -1600,25 +1430,22 @@ export default function LandingPage({
                     exit={{ opacity: 0, y: -10 }}
                     transition={{ duration: 0.2 }}
                     className="space-y-4"
+                    style={{ willChange: "transform, opacity" }}
                   >
                     <h4 className="font-extrabold text-sm sm:text-base text-slate-950 dark:text-white leading-snug">
-                      "An obsession with human-computer interaction, visual
-                      typography, and tactile feedback."
+                      "An obsession with human-computer interaction, visual typography, and tactile
+                      feedback."
                     </h4>
 
                     <p className="text-xs sm:text-sm text-slate-705 dark:text-slate-150 leading-relaxed font-normal">
-                      Digital tools should feel as tactile and responsive as
-                      premium physical furniture. NewDay is a deep study in
-                      structural ergonomics and visual balance: pairing robust
-                      server-side synchronization with high-contrast UI layouts,
-                      generous negative space, and responsive bento-grids tuned
-                      precisely for large tablets and desktop monitors.
+                      Digital tools should feel as tactile and responsive as premium physical
+                      furniture. NewDay is a deep study in structural ergonomics and visual balance:
+                      pairing robust server-side synchronization with high-contrast UI layouts,
+                      generous negative space, and responsive bento-grids tuned precisely for large
+                      tablets and desktop monitors.
                     </p>
 
-                    <div
-                      className="flex flex-wrap gap-2 pt-2"
-                      id="badges-journey"
-                    >
+                    <div className="flex flex-wrap gap-2 pt-2" id="badges-journey">
                       <span className="px-2 py-1 rounded bg-[#5C27FE]/10 dark:bg-[#5C27FE]/15 text-[#5C27FE] dark:text-[#a085ff] text-[10px] font-bold font-mono">
                         [Design Ergonomics]
                       </span>
@@ -1641,26 +1468,21 @@ export default function LandingPage({
                     exit={{ opacity: 0, y: -10 }}
                     transition={{ duration: 0.2 }}
                     className="space-y-4"
+                    style={{ willChange: "transform, opacity" }}
                   >
                     <h4 className="font-extrabold text-sm sm:text-base text-slate-950 dark:text-white leading-snug">
-                      "Software must be fast. It must be honest. It must be
-                      beautiful."
+                      "Software must be fast. It must be honest. It must be beautiful."
                     </h4>
 
                     <p className="text-xs sm:text-sm text-slate-705 dark:text-slate-150 leading-relaxed font-normal">
-                      The modern web has become full of slow loading indicators
-                      and speculative success states. NewDay operates on two
-                      hard truths: first, latency matters more than
-                      features—low-latency sync cycles are a requirement, not a
-                      bonus; and second, architectural honesty builds
-                      trust—never fake database successes; let the structural
-                      code speak for itself.
+                      The modern web has become full of slow loading indicators and speculative
+                      success states. NewDay operates on two hard truths: first, latency matters
+                      more than features—low-latency sync cycles are a requirement, not a bonus; and
+                      second, architectural honesty builds trust—never fake database successes; let
+                      the structural code speak for itself.
                     </p>
 
-                    <div
-                      className="flex flex-wrap gap-2 pt-2"
-                      id="badges-manifest"
-                    >
+                    <div className="flex flex-wrap gap-2 pt-2" id="badges-manifest">
                       <span className="px-2 py-1 rounded bg-orange-500/10 dark:bg-orange-500/15 text-orange-600 dark:text-orange-400 text-[10px] font-bold font-mono">
                         [TypeScript Strictness]
                       </span>
@@ -1755,9 +1577,8 @@ export default function LandingPage({
                 Unlock your modular collaborative task workspace
               </h2>
               <p className="text-xs text-gray-600 dark:text-gray-300 max-w-lg mx-auto mt-3 leading-relaxed">
-                Configure secure credentials. Create a team desk, add
-                priorities, trigger your immediate AI roadmaps, and chat with
-                peers in real-time latency.
+                Configure secure credentials. Create a team desk, add priorities, trigger your
+                immediate AI roadmaps, and chat with peers in real-time latency.
               </p>
 
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-8">
@@ -1823,8 +1644,8 @@ export default function LandingPage({
               </span>
             </div>
             <p className="text-[11px] text-slate-700 dark:text-slate-100 leading-relaxed font-normal">
-              Durable collaborative task ecosystem. Syncing tasks, live feedback
-              streams, and AI Roadmaps on high-fidelity visual cards.
+              Durable collaborative task ecosystem. Syncing tasks, live feedback streams, and AI
+              Roadmaps on high-fidelity visual cards.
             </p>
           </div>
 
@@ -1890,20 +1711,37 @@ export default function LandingPage({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 border-t border-gray-200/45 dark:border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4 text-gray-500 dark:text-gray-400 text-[11px]">
           <div className="flex items-center gap-1.5 font-medium">
             <span>
-              © {new Date().getFullYear()} NewDay Core Desk. Built with true
-              full-stack rules.
+              © {new Date().getFullYear()} NewDay Core Desk. Built with true full-stack rules.
             </span>
           </div>
 
           <div className="flex items-center gap-6 font-mono text-[10px]">
             <span>UTC Clock: {new Date().toISOString().slice(11, 19)}</span>
-            <span className="flex items-center gap-1">
-              <Heart
-                size={10}
-                className="text-red-500 fill-current animate-pulse"
-              />{" "}
-              Inspired by Supernotes
-            </span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  if (typeof window !== "undefined") {
+                    window.history.pushState({}, "", "/terms");
+                    window.location.reload();
+                  }
+                }}
+                className="text-xs font-semibold text-gray-600 dark:text-gray-400 hover:text-[#5C27FE] dark:hover:text-[#a085ff] transition-all hover:scale-105 cursor-pointer"
+              >
+                Terms
+              </button>
+              <span className="text-gray-300 dark:text-gray-600">•</span>
+              <button
+                onClick={() => {
+                  if (typeof window !== "undefined") {
+                    window.history.pushState({}, "", "/privacy");
+                    window.location.reload();
+                  }
+                }}
+                className="text-xs font-semibold text-gray-600 dark:text-gray-400 hover:text-[#5C27FE] dark:hover:text-[#a085ff] transition-all hover:scale-105 cursor-pointer"
+              >
+                Privacy
+              </button>
+            </div>
           </div>
         </div>
       </footer>
@@ -1919,6 +1757,7 @@ export default function LandingPage({
               exit={{ opacity: 0 }}
               onClick={() => setIsAuthOpen(false)}
               className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 cursor-pointer"
+              style={{ willChange: "opacity" }}
             />
 
             {/* Auth Drawer Sheet Panel */}
@@ -1928,6 +1767,7 @@ export default function LandingPage({
               exit={{ x: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 220 }}
               className="fixed right-0 top-0 bottom-0 w-full max-w-md bg-white dark:bg-[#0c0c16] border-l border-gray-200/50 dark:border-white/10 shadow-2xl z-50 flex flex-col justify-between p-6 overflow-y-auto"
+              style={{ willChange: "transform" }}
             >
               {loading && (
                 <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-950/90 backdrop-blur-sm px-6 py-8">
@@ -1943,11 +1783,7 @@ export default function LandingPage({
                 {/* Header Close array */}
                 <div className="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-white/5 mb-6">
                   <div className="flex items-center gap-2">
-                    <img
-                      src={logoImage}
-                      alt="NewDay logo"
-                      className="h-16 w-16 object-contain"
-                    />
+                    <img src={logoImage} alt="NewDay logo" className="h-16 w-16 object-contain" />
                     <span className="font-extrabold text-xs tracking-tight text-gray-900 dark:text-white">
                       Workspace Gate
                     </span>
@@ -1978,7 +1814,7 @@ export default function LandingPage({
                       : authMode === "reset"
                         ? "Type your email and receive a secure reset link."
                         : authMode === "signup"
-                          ? "Create a verified profile or continue with Google."
+                          ? "Create a verified profile to get started."
                           : "Verify credentials to load your persistent project boards."}
                   </p>
                 </div>
@@ -2012,22 +1848,6 @@ export default function LandingPage({
                       <span>{resetSuccess}</span>
                     </div>
                   )}
-
-                  {authMode !== "reset" &&
-                    authMode !== "reset-confirm" &&
-                    googleClientId && (
-                      <button
-                        type="button"
-                        onClick={startGoogleAuth}
-                        disabled={loading || !googleReady}
-                        className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-black/30 px-3 py-3 text-xs font-extrabold text-gray-800 dark:text-white disabled:opacity-50"
-                      >
-                        <span className="h-4 w-4 rounded-full bg-white text-center text-[11px] font-black text-[#4285F4]">
-                          G
-                        </span>
-                        Continue with Google
-                      </button>
-                    )}
 
                   {authMode === "signup" && (
                     <div>
@@ -2116,19 +1936,12 @@ export default function LandingPage({
                           type="button"
                           onClick={() => setShowPassword(!showPassword)}
                           className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-[#a085ff] transition-colors"
-                          title={
-                            showPassword ? "Hide password" : "Show password"
-                          }
+                          title={showPassword ? "Hide password" : "Show password"}
                         >
-                          {showPassword ? (
-                            <EyeOff size={14} />
-                          ) : (
-                            <Eye size={14} />
-                          )}
+                          {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
                         </button>
                       </div>
-                      {(authMode === "signup" ||
-                        authMode === "reset-confirm") && (
+                      {(authMode === "signup" || authMode === "reset-confirm") && (
                         <div className="mt-2">
                           <PasswordStrengthIndicator password={password} />
                         </div>
@@ -2140,8 +1953,7 @@ export default function LandingPage({
                     type="submit"
                     disabled={
                       loading ||
-                      ((authMode === "signup" ||
-                        authMode === "reset-confirm") &&
+                      ((authMode === "signup" || authMode === "reset-confirm") &&
                         !isPasswordStrong(password))
                     }
                     className="w-full mt-2 inline-flex items-center justify-center gap-2 text-xs font-bold py-3.5 rounded-xl bg-[#5C27FE] hover:bg-[#4a1ee3] text-white disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-150 shadow-md shadow-[#5C27FE]/20 hover:shadow-lg hover:shadow-[#5C27FE]/30 cursor-pointer text-center select-none"

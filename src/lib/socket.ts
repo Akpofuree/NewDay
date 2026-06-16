@@ -6,4 +6,8 @@ const SOCKET_URL =
 
 export const socket = io(SOCKET_URL, {
   withCredentials: true,
+  // Add reconnection logic for Render free tier sleep cycles
+  reconnection: true,
+  reconnectionAttempts: 10,
+  reconnectionDelay: 1000,
 });

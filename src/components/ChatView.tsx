@@ -87,6 +87,11 @@ export default function ChatView({
   // Mobile view state
   const [mobileView, setMobileView] = useState<"channels" | "chat">("channels");
 
+  // Socket.io connection status for Render free tier
+  const [connectionStatus, setConnectionStatus] = useState<
+    "connected" | "disconnected" | "reconnecting"
+  >("connected");
+
   /*
   ========================================
   CHAT CONTAINER REF
@@ -256,11 +261,29 @@ export default function ChatView({
       setPresence((prev) => ({ ...prev, [userId]: { status, lastSeenAt } }));
     });
 
+    // Socket.io connection status tracking for Render free tier
+    socket.on("connect", () => {
+      setConnectionStatus("connected");
+    });
+    socket.on("disconnect", () => {
+      setConnectionStatus("disconnected");
+    });
+    socket.io.on("reconnect_attempt", () => {
+      setConnectionStatus("reconnecting");
+    });
+    socket.io.on("reconnect", () => {
+      setConnectionStatus("connected");
+    });
+
     return () => {
       socket.off("receive_message");
       socket.off("user_typing");
       socket.off("user_stop_typing");
       socket.off("presence_update");
+      socket.off("connect");
+      socket.off("disconnect");
+      socket.io.off("reconnect_attempt");
+      socket.io.off("reconnect");
     };
   }, [activeChannelId, currentUser?.id, setChannels, setChatMessages]);
 
@@ -331,11 +354,31 @@ export default function ChatView({
         } else {
           const errorText = await response.text();
           console.error("AI assistant failed:", errorText);
-          alert(`AI assistant failed: ${errorText}`);
+          const errorMsg: ChatMessageWithExtras = {
+            id: `ai_error_${Date.now()}`,
+            channelId: activeChannelId,
+            userId: "system",
+            userName: "System",
+            userAvatar: "",
+            content: "AI assistant is temporarily unavailable, please try again in a moment.",
+            createdAt: new Date().toISOString(),
+            isSystem: true,
+          };
+          setChatMessages((prev) => [...prev, errorMsg]);
         }
       } catch (err) {
         console.error("AI assistant error:", err);
-        alert("AI assistant error: Unable to connect");
+        const errorMsg: ChatMessageWithExtras = {
+          id: `ai_error_${Date.now()}`,
+          channelId: activeChannelId,
+          userId: "system",
+          userName: "System",
+          userAvatar: "",
+          content: "AI assistant is temporarily unavailable, please try again in a moment.",
+          createdAt: new Date().toISOString(),
+          isSystem: true,
+        };
+        setChatMessages((prev) => [...prev, errorMsg]);
       } finally {
         setIsAiTyping(false);
       }
@@ -635,6 +678,23 @@ export default function ChatView({
 
   return (
     <div className="glass-card rounded-2xl overflow-hidden flex h-[600px] md:h-[750px] text-left animate-fadeIn relative w-full">
+      {/* Connection Status Banner for Render Free Tier */}
+      {connectionStatus !== "connected" && (
+        <div className="absolute top-0 left-0 right-0 z-50 bg-amber-100 dark:bg-amber-950/50 border-b border-amber-200 dark:border-amber-800 px-4 py-2 text-xs font-semibold text-amber-800 dark:text-amber-200 flex items-center justify-center gap-2">
+          {connectionStatus === "reconnecting" ? (
+            <>
+              <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+              <span>Reconnecting to server...</span>
+            </>
+          ) : (
+            <>
+              <div className="w-2 h-2 rounded-full bg-red-500" />
+              <span>Disconnected - attempting to reconnect</span>
+            </>
+          )}
+        </div>
+      )}
+
       {/* LEFT SIDEBAR - CHANNELS LIST */}
 
       <div
