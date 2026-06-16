@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { Sparkles, Play, Check, ArrowRight } from "lucide-react";
+import Particles from "../Particles";
+import Galaxy from "../Galaxy";
 import { User } from "../../types";
 import PulsatingButton from "../../registry/magicui/pulsating-button";
 
@@ -44,10 +46,36 @@ export default function Hero({
       <div className="absolute inset-0 -z-10 pointer-events-none">
         {isDarkHook ? (
           <>
+            <Galaxy
+              hueShift={240}
+              density={1.35}
+              glowIntensity={0.55}
+              saturation={0.8}
+              mouseRepulsion={false}
+              mouseInteraction={false}
+              twinkleIntensity={0.35}
+              rotationSpeed={0.06}
+              transparent={true}
+              className="absolute inset-0 w-full h-full"
+            />
             <div className="absolute inset-0 bg-slate-950/34" />
           </>
         ) : (
           <>
+            <Particles
+              particleCount={980}
+              particleSpread={28}
+              speed={0.1}
+              particleColors={["#312E81", "#0F766E", "#B91C1C"]}
+              moveParticlesOnHover={true}
+              particleHoverFactor={1}
+              alphaParticles={true}
+              particleBaseSize={260}
+              sizeRandomness={1.4}
+              cameraDistance={20}
+              disableRotation={false}
+              className="absolute inset-0 w-full h-full"
+            />
             <div className="absolute inset-0 bg-gradient-to-br from-[#eff6ff]/35 via-white/55 to-[#f8fafc]/60" />
             <div className="absolute left-1/2 top-[-5%] h-72 w-72 -translate-x-1/2 rounded-full bg-[#c7d2fe]/25 blur-3xl" />
             <div className="absolute right-10 top-20 h-56 w-56 rounded-full bg-[#dbeafe]/30 blur-3xl" />
