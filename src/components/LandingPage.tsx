@@ -1508,14 +1508,14 @@ export default function LandingPage({
                   Active hotline support:
                 </span>
                 <span className="font-mono bg-slate-100 dark:bg-slate-900 border border-gray-200 dark:border-white/10 px-2 py-0.5 rounded text-slate-950 dark:text-white font-bold select-all">
-                  +234 (704) 936-3914
+                  09059003049
                 </span>
               </div>
               <div className="flex gap-2">
                 <a
                   type="button"
                   id="link-twitter"
-                  href="https://twitter.com/akpofure_d"
+                  href="https://x.com/akpofureziter?s=21"
                   target="_blank"
                   rel="noopener noreferrer"
                   referrerPolicy="no-referrer"
@@ -1527,7 +1527,7 @@ export default function LandingPage({
                 <a
                   type="button"
                   id="link-linkedin"
-                  href="https://linkedin.com/in/akpofure-diegbe"
+                  href="https://www.linkedin.com/in/akpofure-diegbe-9760b8303/"
                   target="_blank"
                   rel="noopener noreferrer"
                   referrerPolicy="no-referrer"
@@ -1655,17 +1655,17 @@ export default function LandingPage({
             </h4>
             <div className="flex items-center gap-3 pt-1">
               <a
-                href="https://twitter.com/akpofure_d"
+                href="https://x.com/akpofureziter?s=21"
                 target="_blank"
                 referrerPolicy="no-referrer"
                 rel="noopener noreferrer"
                 className="w-9 h-9 rounded-full bg-slate-100 hover:bg-[#5C27FE]/20 dark:bg-slate-900 dark:hover:bg-[#5C27FE]/30 text-slate-800 dark:text-white hover:text-[#5C27FE] dark:hover:text-[#a085ff] border border-gray-200 dark:border-white/10 flex items-center justify-center transition-all duration-200"
-                title="Twitter / X Profile : @akpofure_d"
+                title="Twitter / X Profile : @akpofureziter"
               >
                 <Twitter size={15} />
               </a>
               <a
-                href="https://linkedin.com/in/akpofurediegbe"
+                href="https://www.linkedin.com/in/akpofure-diegbe-9760b8303/"
                 target="_blank"
                 referrerPolicy="no-referrer"
                 rel="noopener noreferrer"
@@ -1675,7 +1675,7 @@ export default function LandingPage({
                 <Linkedin size={15} />
               </a>
               <a
-                href="https://akpofurediegbe.dev"
+                href="https://akpofure-s-portfolio.vercel.app/"
                 target="_blank"
                 referrerPolicy="no-referrer"
                 rel="noopener noreferrer"
