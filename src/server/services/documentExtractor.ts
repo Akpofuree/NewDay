@@ -1,17 +1,13 @@
-import { createRequire } from "module";
-const require = createRequire(import.meta.url);
-// @ts-ignore - pdf-parse has type issues but works at runtime
-const pdf = require("pdf-parse");
-import mammoth from "mammoth";
-
 export async function extractTextFromFile(buffer: Buffer, mimeType: string): Promise<string> {
   try {
     if (mimeType === "application/pdf") {
-      const data = await pdf(buffer);
+      const pdfParse = (await import("pdf-parse")).default;
+      const data = await pdfParse(buffer);
       return data.text;
     } else if (
       mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     ) {
+      const mammoth = await import("mammoth");
       const result = await mammoth.extractRawText({ buffer });
       return result.value;
     } else if (mimeType === "text/plain") {
