@@ -675,28 +675,66 @@ devMemoryRouter.post("/chat/messages", requireDevAuth, (req, res) => {
   res.status(201).json(message);
 });
 
-devMemoryRouter.post("/ai/roadmap", requireDevAuth, (_req, res) => {
-  res.json({
-    phases: [
-      {
-        phase: 1,
-        title: "Configure Anthropic for live AI roadmaps",
-        estimatedTime: "10 minutes",
-        description:
-          "Add ANTHROPIC_API_KEY to .env to enable Claude-generated task learning guides.",
-        resources: [
-          {
-            type: "official_docs",
-            title: "Anthropic API documentation",
-            url: "https://docs.anthropic.com/",
-            paid: false,
-          },
-        ],
-        practiceProject:
-          "Restart the local server after adding your real API key.",
-      },
-    ],
-  });
+devMemoryRouter.post("/ai/roadmap", requireDevAuth, async (req, res, next) => {
+  try {
+    const { generateTaskRoadmap } = await import("../services/anthropic");
+    const body = req.body;
+    const roadmap = await generateTaskRoadmap({
+      title: body.skillName || "Untitled",
+      description: body.description,
+      status: "pending",
+    });
+    res.json(roadmap);
+  } catch (error) {
+    next(error);
+  }
+});
+
+devMemoryRouter.post("/ai/learning-coach", requireDevAuth, async (req, res, next) => {
+  try {
+    const { getLearningCoachResponse } = await import("../services/anthropic");
+    const { feature, userRequest, taskTitle, taskDescription, documentText } = req.body;
+    const coachResponse = await getLearningCoachResponse({
+      feature,
+      userRequest,
+      taskTitle,
+      taskDescription,
+      documentText,
+    });
+    res.json(coachResponse);
+  } catch (error) {
+    next(error);
+  }
+});
+
+devMemoryRouter.post("/ai/chat", requireDevAuth, async (req, res, next) => {
+  try {
+    const { generateAICoachResponse } = await import("../services/anthropic");
+    const { taskTitle, message, history } = req.body;
+    const coachResponse = await generateAICoachResponse({
+      taskTitle: taskTitle || "Untitled Task",
+      taskDescription: "",
+      message,
+      history: history || [],
+    });
+    res.json(coachResponse);
+  } catch (error) {
+    next(error);
+  }
+});
+
+devMemoryRouter.post("/ai/chat-assistant", requireDevAuth, async (req, res, next) => {
+  try {
+    const { generateChatAssistantResponse } = await import("../services/anthropic");
+    const { message, recentMessages } = req.body;
+    const assistantResponse = await generateChatAssistantResponse({
+      message,
+      recentMessages: recentMessages || [],
+    });
+    res.json(assistantResponse);
+  } catch (error) {
+    next(error);
+  }
 });
 
 devMemoryRouter.post("/attachments/upload", (_req, res) => {

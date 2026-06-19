@@ -6,6 +6,7 @@ import { requireAuth } from "../middleware/auth";
 import { sanitizeValue } from "../sanitize";
 import { sendWorkspaceInviteEmail } from "../services/emailService";
 import { mapTask } from "./tasks";
+import { extractTextFromFile } from "../services/documentExtractor";
 
 export const workspaceRouter = Router();
 
@@ -222,8 +223,6 @@ async function requireGroupRole(
 
 workspaceRouter.get("/db", async (req, res, next) => {
   try {
-    await ensureDefaultWorkspace(req.user!.id);
-
     const [tasks, groups, goals, channels, chatMessages] = await Promise.all([
       query(
         `SELECT t.id, t.user_id, t.title, t.description, t.status, t.priority,
@@ -1491,4 +1490,25 @@ workspaceRouter.post("/attachments/upload", (req, res) => {
     fileUrl: payload.dataUrl || "",
     uploadedAt: new Date().toISOString(),
   });
+});
+
+workspaceRouter.post("/attachments/extract-text", requireAuth, async (req, res, next) => {
+  try {
+    const { dataUrl, fileType } = req.body;
+
+    if (!dataUrl || !fileType) {
+      throw new AppError(400, "Missing dataUrl or fileType", "MISSING_REQUIRED_FIELDS");
+    }
+
+    // Convert base64 to buffer
+    const base64Data = dataUrl.split(",")[1];
+    const buffer = Buffer.from(base64Data, "base64");
+
+    // Extract text based on file type
+    const extractedText = await extractTextFromFile(buffer, fileType);
+
+    res.json({ extractedText });
+  } catch (error) {
+    next(error);
+  }
 });

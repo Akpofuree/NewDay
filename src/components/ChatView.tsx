@@ -1191,6 +1191,19 @@ export default function ChatView({
             </div>
           )}
 
+          {/* AI INSTRUCTION - MOBILE ONLY */}
+          <div className="md:hidden mt-2 flex-shrink-0 p-2 rounded-xl bg-[#5C27FE]/5 border border-[#5C27FE]/15 text-[10px] space-y-1 leading-relaxed">
+            <div className="flex items-center gap-1.5 font-bold text-[#5C27FE]">
+              <Bot size={11} className={isAiTyping ? "animate-bounce" : ""} />
+              <span>{isAiTyping ? "AI Assistant Responding..." : "Synergy Engine Active"}</span>
+            </div>
+            <span className="text-gray-400">
+              {isAiTyping
+                ? "Generating response..."
+                : "Type @ai or /ai to trigger AI assistant responses!"}
+            </span>
+          </div>
+
           {/* FORM */}
 
           <form onSubmit={handleSubmitMessage} className="flex gap-2">

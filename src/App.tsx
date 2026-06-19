@@ -23,7 +23,18 @@ import useTaskHandlers from "./hooks/useTaskHandlers";
 import useGroupHandlers from "./hooks/useGroupHandlers";
 import { getCategorizedTasks, getListSections, getMetrics } from "./utils/taskFilters";
 import { getGreeting, getUserLanguage } from "./utils/greeting";
-import { List, LayoutGrid, ClipboardList, PieChart, Target, MessageSquare } from "lucide-react";
+import {
+  List,
+  LayoutGrid,
+  ClipboardList,
+  PieChart,
+  Target,
+  MessageSquare,
+  X,
+  Sparkles,
+  Plus,
+  Calendar,
+} from "lucide-react";
 
 const logoImage = new URL("./images/logo.png", import.meta.url).href;
 
@@ -110,6 +121,23 @@ export default function App() {
     setIsNewGroupOpen,
     setActiveCategory,
   });
+
+  // First-time onboarding tooltip state
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  useEffect(() => {
+    if (currentUser && authChecked) {
+      const onboarded = localStorage.getItem("newday_onboarded");
+      if (!onboarded) {
+        setShowOnboarding(true);
+      }
+    }
+  }, [currentUser, authChecked]);
+
+  const handleDismissOnboarding = () => {
+    localStorage.setItem("newday_onboarded", "true");
+    setShowOnboarding(false);
+  };
 
   const [sortBy, setSortBy] = useState<"dueDate" | "priority" | "createdAt" | "title" | "status">(
     () => {
@@ -297,8 +325,8 @@ export default function App() {
         </div>
       )}
 
-      <div className="absolute top-10 left-10 w-96 h-96 rounded-full bg-gradient-to-tr from-[#5C27FE]/15 to-[#0EA5E9]/10 blur-3xl pointer-events-none" />
-      <div className="absolute bottom-20 right-20 w-[450px] h-[450px] rounded-full bg-gradient-to-tr from-[#FF4D4D]/10 to-[#FFB020]/10 blur-3xl pointer-events-none" />
+      <div className="absolute top-10 left-10 w-64 h-64 sm:w-96 sm:h-96 rounded-full bg-gradient-to-tr from-[#5C27FE]/15 to-[#0EA5E9]/10 blur-3xl pointer-events-none" />
+      <div className="absolute bottom-20 right-20 w-72 h-72 sm:w-[450px] sm:h-[450px] rounded-full bg-gradient-to-tr from-[#FF4D4D]/10 to-[#FFB020]/10 blur-3xl pointer-events-none" />
 
       <MobileTopNav
         logoImage={logoImage}
@@ -355,7 +383,7 @@ export default function App() {
               </p>
             )}
             {activeCategory === "today" && (
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              <p className="text-xs text-gray-900 dark:text-white mt-1">
                 {greeting || `Good morning, ${currentUser.name}`}. Let's make today remarkably
                 cohesive.
               </p>
@@ -366,6 +394,7 @@ export default function App() {
             <button
               onClick={() => setActiveView("list")}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-all cursor-pointer ${activeView === "list" ? "bg-[#5C27FE] text-white shadow-xs" : "text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white"}`}
+              title="See all tasks as a simple list"
             >
               <List size={13} />
               <span>List View</span>
@@ -373,9 +402,10 @@ export default function App() {
             <button
               onClick={() => setActiveView("kanban")}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-all cursor-pointer ${activeView === "kanban" ? "bg-[#5C27FE] text-white shadow-xs" : "text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white"}`}
+              title="Visualize tasks as cards across status columns"
             >
               <LayoutGrid size={13} />
-              <span>Kanban Panel</span>
+              <span>Board View</span>
             </button>
           </div>
         </header>
@@ -456,18 +486,38 @@ export default function App() {
             />
 
             {categorizedTasks.length === 0 ? (
-              <div className="p-12 rounded-2xl glass-card text-center flex flex-col items-center justify-center space-y-3.5">
-                <div className="w-12 h-12 rounded-full bg-gray-100 dark:bg-white/5 flex items-center justify-center text-gray-400">
-                  <ClipboardList size={22} />
+              <div className="p-12 rounded-2xl glass-card text-center flex flex-col items-center justify-center space-y-4">
+                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#5C27FE]/10 to-[#0EA5E9]/10 flex items-center justify-center text-[#5C27FE]">
+                  <Sparkles size={28} />
                 </div>
-                <div className="max-w-xs">
-                  <h4 className="font-sora font-extrabold text-sm text-gray-900 dark:text-white">
-                    Workspace is clean
+                <div className="max-w-sm space-y-2">
+                  <h4 className="font-sora font-extrabold text-base text-gray-900 dark:text-white">
+                    You're all set up — let's add your first task
                   </h4>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">
-                    No aligned coordinates fit active search criteria or category filter values.
-                    Make a new task or modify filters or search terms!
+                  <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                    Create a task, assign it to yourself, and track it here
                   </p>
+                </div>
+                <button
+                  onClick={() => setIsNewTaskOpen(true)}
+                  className="px-6 py-3 rounded-xl bg-[#5C27FE] hover:bg-[#4a1ee3] text-white text-xs font-bold inline-flex items-center gap-2 transition-all shadow-md shadow-[#5C27FE]/20 cursor-pointer"
+                >
+                  <Plus size={14} />
+                  <span>Create your first task</span>
+                </button>
+                <div className="flex items-center gap-6 pt-2">
+                  <div className="flex items-center gap-1.5 text-[10px] text-gray-400">
+                    <Calendar size={11} />
+                    <span>Today</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[10px] text-gray-400">
+                    <LayoutGrid size={11} />
+                    <span>Board</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[10px] text-gray-400">
+                    <Target size={11} />
+                    <span>Goals</span>
+                  </div>
                 </div>
               </div>
             ) : activeView === "list" ? (
@@ -597,6 +647,60 @@ export default function App() {
         setIsNewTaskOpen={setIsNewTaskOpen}
         chatMessages={chatMessages}
       />
+
+      {showOnboarding && (
+        <div className="fixed bottom-20 left-4 right-4 md:left-1/2 md:right-auto md:-translate-x-1/2 md:w-96 z-50 animate-fadeIn">
+          <div className="bg-white dark:bg-[#1A1A2E] border border-gray-200 dark:border-white/10 rounded-2xl shadow-xl p-4 space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-[#5C27FE]/10 flex items-center justify-center">
+                  <Sparkles size={16} className="text-[#5C27FE]" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-sm text-gray-900 dark:text-white">
+                    Welcome to NewDay!
+                  </h4>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    Quick navigation guide:
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={handleDismissOnboarding}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
+                <div className="w-1.5 h-1.5 rounded-full bg-[#5C27FE]" />
+                <span>
+                  <strong>Today</strong> — Your tasks due today
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
+                <div className="w-1.5 h-1.5 rounded-full bg-[#0EA5E9]" />
+                <span>
+                  <strong>Desk</strong> — All your assigned tasks
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
+                <div className="w-1.5 h-1.5 rounded-full bg-[#FF4D4D]" />
+                <span>
+                  <strong>Goals</strong> — Your personal and team goals
+                </span>
+              </div>
+            </div>
+            <button
+              onClick={handleDismissOnboarding}
+              className="w-full py-2 rounded-lg bg-[#5C27FE] hover:bg-[#4a1ee3] text-white text-xs font-bold transition-all cursor-pointer"
+            >
+              Got it, let's start!
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

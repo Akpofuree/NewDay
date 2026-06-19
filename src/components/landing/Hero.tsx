@@ -87,14 +87,14 @@ export default function Hero({
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.05 }}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#5C27FE]/15 dark:bg-[#5C27FE]/20 text-[#5C27FE] dark:text-[#c4b5fd] text-[11px] font-bold tracking-tight mb-6 border border-[#5C27FE]/20"
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#5C27FE]/10 dark:bg-[#5C27FE]/15 text-[#5C27FE] dark:text-[#c4b5fd] text-[11px] font-bold tracking-tight mb-6 border border-[#5C27FE]/20 dark:border-[#5C27FE]/30"
       >
         <Sparkles
           size={11}
           className="text-[#5C27FE] dark:text-indigo-300 animate-spin"
           style={{ animationDuration: "3s" }}
         />
-        <span>Supernotes Inspired Dynamic Card Architecture</span>
+        <span>AI-Powered Task Workspace</span>
       </motion.div>
 
       <motion.h1
@@ -116,10 +116,8 @@ export default function Hero({
         transition={{ duration: 0.6, delay: 0.2 }}
         className="text-sm sm:text-base text-gray-700 dark:text-gray-200 max-w-2xl mx-auto mt-6 leading-relaxed"
       >
-        Welcome to{" "}
-        <span className="font-bold text-indigo-650 dark:text-indigo-400">NewDay Desk</span> — the
-        fastest, collaborative, database-synced task workspace. Rebuilt with zero mockups, live
-        synchronized boards, customized tablet/mobile layouts, and AI-powered learning guides.
+        Ship faster with your team. One workspace for everything. Collaborative task management for
+        small teams.
       </motion.p>
 
       <motion.div
@@ -172,10 +170,10 @@ export default function Hero({
         className="flex items-center justify-center gap-6 mt-10 text-[11px] text-gray-400 dark:text-gray-500 font-semibold font-mono"
       >
         <span className="flex items-center gap-1.5">
-          <Check size={12} className="text-[#5C27FE]" /> ZERO MOCK DATA
+          <Check size={12} className="text-[#5C27FE]" /> AI SMART COACHING
         </span>
         <span className="flex items-center gap-1.5">
-          <Check size={12} className="text-[#0EA5E9]" /> FIRESTORE PERMANENCY
+          <Check size={12} className="text-[#0EA5E9]" /> REAL-TIME SYNC
         </span>
         <span className="flex items-center gap-1.5">
           <Check size={12} className="text-emerald-500" /> DUAL LAYOUT DESIGN

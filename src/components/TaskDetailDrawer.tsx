@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import ReactMarkdown from "react-markdown";
 import {
   Task,
   Subtask,
@@ -34,6 +35,16 @@ import {
   BrainCircuit,
   ExternalLink,
   Flame,
+  FileText,
+  BookOpen,
+  File,
+  Lightbulb,
+  Code,
+  UserCircle,
+  Mail,
+  Copy,
+  Save,
+  Map,
 } from "lucide-react";
 import { apiFetch } from "../lib/api";
 
@@ -92,6 +103,115 @@ export default function TaskDetailDrawer({
   const [aiChatMessages, setAiChatMessages] = useState<
     Array<{ role: "user" | "model"; text: string }>
   >([]);
+  const [selectedAiCapability, setSelectedAiCapability] = useState<string>("task_breakdown");
+  const [isProcessingAiRequest, setIsProcessingAiRequest] = useState(false);
+  const [aiRequestInput, setAiRequestInput] = useState("");
+  const [aiResponse, setAiResponse] = useState<string>("");
+  const [aiError, setAiError] = useState<string>("");
+  const learningAssistantRef = useRef<HTMLDivElement>(null);
+  const [uploadedDocument, setUploadedDocument] = useState<{
+    file: File;
+    fileName: string;
+    extractedText: string;
+  } | null>(null);
+
+  // AI Capabilities organized by category
+  const aiCapabilities = {
+    "Task Management AI": [
+      {
+        id: "task_breakdown",
+        label: "Task Breakdown",
+        icon: CheckSquare,
+        description: "Break down tasks into actionable subtasks with time estimates",
+        placeholder: "Describe the task you want to break down into smaller steps...",
+      },
+      {
+        id: "roadmap",
+        label: "Generate Roadmap",
+        icon: Map,
+        description: "Create a structured learning roadmap with phases and resources",
+        placeholder: "Click to generate a learning roadmap for this task...",
+      },
+    ],
+    "Document & Content AI": [
+      {
+        id: "summarize",
+        label: "Documentation Summarization",
+        icon: FileText,
+        description: "Summarize documents into clear, structured bullet points",
+        placeholder: "Upload a document or paste content to summarize...",
+      },
+      {
+        id: "study_notes",
+        label: "Study Notes Generator",
+        icon: BookOpen,
+        description: "Convert content into well-structured study notes with key terms",
+        placeholder: "Upload a document or paste content to create study notes...",
+      },
+    ],
+    "Learning & Explanation AI": [
+      {
+        id: "explain",
+        label: "Explain Concepts",
+        icon: Lightbulb,
+        description: "Explain concepts in plain language with analogies and examples",
+        placeholder: "Describe the concept or topic you want explained...",
+      },
+      {
+        id: "code_explain",
+        label: "Code Explanation",
+        icon: Code,
+        description: "Explain code clearly with line-by-line breakdown and patterns",
+        placeholder: "Paste the code you want explained...",
+      },
+      {
+        id: "error_explain",
+        label: "Error Explanation",
+        icon: AlertCircle,
+        description: "Analyze errors and provide clear fixes with corrected code",
+        placeholder: "Paste the error message or problematic code...",
+      },
+    ],
+    "Creative & Professional AI": [
+      {
+        id: "brainstorm",
+        label: "Brainstorm & Assistance",
+        icon: Sparkles,
+        description: "Brainstorm ideas and explore possibilities for your task",
+        placeholder: "Describe what you want to brainstorm or explore...",
+      },
+      {
+        id: "resume",
+        label: "Resume Improvement",
+        icon: UserCircle,
+        description: "Strengthen language and highlight impact with metrics",
+        placeholder: "Paste your resume content or describe your experience...",
+      },
+      {
+        id: "cover_letter",
+        label: "Cover Letter Generator",
+        icon: Mail,
+        description: "Write compelling, specific, and engaging cover letters",
+        placeholder: "Describe the job and your qualifications...",
+      },
+      {
+        id: "interview",
+        label: "Interview Preparation",
+        icon: MessageSquare,
+        description: "Generate interview questions and STAR method answers",
+        placeholder: "Describe the job role or company you're interviewing with...",
+      },
+    ],
+  };
+
+  // Get placeholder for selected capability
+  const getPlaceholder = () => {
+    for (const category of Object.values(aiCapabilities)) {
+      const capability = category.find((cap) => cap.id === selectedAiCapability);
+      if (capability) return capability.placeholder;
+    }
+    return "Describe what you need help with...";
+  };
 
   useEffect(() => {
     if (task) {
@@ -101,6 +221,18 @@ export default function TaskDetailDrawer({
       setIsPomodoroActive(false);
       setTimeLeft(1500);
       setPomodoroMode("focus");
+      // Reset AI state when switching tasks to prevent bleeding
+      setAiRequestInput("");
+      setAiResponse("");
+      setAiError("");
+      setAiChatText("");
+      setAiChatMessages([]);
+      setRoadmapError("");
+      setSelectedAiCapability("task_breakdown");
+      setUploadedDocument(null);
+      setIsProcessingAiRequest(false);
+      setIsAiResponding(false);
+      setIsGeneratingRoadmap(false);
       // If task already has a roadmap, switch active tab to learning coach so they see it!
       if (task.isLearningGoal && task.aiRoadmap) {
         setActiveTab("learning_coach");
@@ -473,6 +605,37 @@ export default function TaskDetailDrawer({
       };
       const withActivity = addActivity(updated, `attached workspace resource "${file.name}"`);
       onUpdateTask(withActivity);
+
+      // Extract text from supported file types (PDF, DOCX, TXT)
+      const supportedTypes = [
+        "application/pdf",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "text/plain",
+      ];
+
+      if (supportedTypes.includes(file.type)) {
+        try {
+          const extractRes = await apiFetch("/api/attachments/extract-text", {
+            method: "POST",
+            body: JSON.stringify({
+              dataUrl: base64Url,
+              fileType: file.type,
+            }),
+          });
+
+          if (extractRes.ok) {
+            const { extractedText } = await extractRes.json();
+            setUploadedDocument({
+              file,
+              fileName: file.name,
+              extractedText,
+            });
+          }
+        } catch (extractErr) {
+          console.error("Failed to extract text:", extractErr);
+          // Don't fail the upload if text extraction fails
+        }
+      }
     } catch (err: any) {
       setUploadError(err.message || "Failure deploying attachment files.");
     } finally {
@@ -512,12 +675,71 @@ export default function TaskDetailDrawer({
     }
   };
 
+  // AI Learning Coach Request Handler
+  const handleGenerateAIResponse = async () => {
+    // For roadmap, we don't need user input - just generate it
+    if (selectedAiCapability === "roadmap") {
+      handleGenerateAI_Roadmap();
+      return;
+    }
+
+    if (!aiRequestInput.trim()) return;
+
+    setIsProcessingAiRequest(true);
+    setAiError("");
+    setAiResponse("");
+
+    try {
+      const response = await apiFetch("/api/ai/learning-coach", {
+        method: "POST",
+        body: JSON.stringify({
+          feature: selectedAiCapability,
+          userRequest: aiRequestInput,
+          taskTitle: task.title,
+          taskDescription: task.description || "",
+          documentText: uploadedDocument?.extractedText || "",
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.error || errorData.detail || `AI request failed (${response.status})`
+        );
+      }
+
+      const data = await response.json();
+      setAiResponse(data.text);
+    } catch (err: any) {
+      setAiError(err.message || "Failed to generate AI response");
+    } finally {
+      setIsProcessingAiRequest(false);
+    }
+  };
+
+  // Copy AI response to clipboard
+  const handleCopyResponse = () => {
+    navigator.clipboard.writeText(aiResponse);
+  };
+
+  // Save AI response to task notes
+  const handleSaveToNotes = () => {
+    const currentNotes = task.notes || "";
+    const updatedNotes = currentNotes
+      ? `${currentNotes}\n\n--- AI Learning Coach Response ---\n${aiResponse}`
+      : `--- AI Learning Coach Response ---\n${aiResponse}`;
+    const updated = { ...task, notes: updatedNotes };
+    onUpdateTask(updated);
+  };
+
   // Request roadmap via Express using GoogleGenAI SDK in backend server
   const handleGenerateAI_Roadmap = async () => {
+    console.log("handleGenerateAI_Roadmap called");
     setIsGeneratingRoadmap(true);
     setRoadmapError("");
 
     try {
+      console.log("Calling /api/ai/roadmap with:", task.title, task.description);
       const response = await apiFetch("/api/ai/roadmap", {
         method: "POST",
         body: JSON.stringify({
@@ -526,13 +748,19 @@ export default function TaskDetailDrawer({
         }),
       });
 
+      console.log("Response status:", response.status, response.ok);
+
       if (!response.ok) {
         const errorData = await response.json();
+        console.error("Error response:", errorData);
         throw new Error(errorData.error || "Roadmap endpoint failed.");
       }
 
       const data = await response.json();
+      console.log("Response data:", data);
+
       if (!data.phases || !Array.isArray(data.phases)) {
+        console.error("Invalid response format:", data);
         throw new Error("Response format is missing direct phases vectors.");
       }
 
@@ -548,11 +776,21 @@ export default function TaskDetailDrawer({
         aiRoadmap: mappedPhases,
       };
 
+      console.log("Updating task with roadmap:", updated);
       const withActivity = addActivity(
         updated,
         `Generated custom study roadmap via Google Gemini! ✨`
       );
       onUpdateTask(withActivity);
+
+      // Smooth scroll to roadmap section after generation
+      setTimeout(() => {
+        const container = document.getElementById("drawer-scroll-container");
+        const roadmapSection = document.getElementById("roadmap-section");
+        if (container && roadmapSection) {
+          container.scrollTo({ top: roadmapSection.offsetTop - 20, behavior: "smooth" });
+        }
+      }, 200);
 
       // Inject welcoming AI mentor notification
       setAiChatMessages([
@@ -562,7 +800,7 @@ export default function TaskDetailDrawer({
         },
       ]);
     } catch (err: any) {
-      console.error(err);
+      console.error("Error in handleGenerateAI_Roadmap:", err);
       setRoadmapError(
         err.message ||
           "Failure prompting virtual teacher. Double-check your API credentials key values."
@@ -723,7 +961,7 @@ export default function TaskDetailDrawer({
         </div>
 
         {/* Content Section - Scrollable */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-6">
+        <div id="drawer-scroll-container" className="flex-1 overflow-y-auto p-5 space-y-6 relative">
           {/* Section 1: Title */}
           <div>
             {isEditingTitle ? (
@@ -757,39 +995,6 @@ export default function TaskDetailDrawer({
               )}
             </div>
           </div>
-
-          {/* AI Learning Roadmap Quick Action */}
-          {!task.aiRoadmap && (
-            <div className="p-4 rounded-xl bg-gradient-to-r from-amber-500/10 via-pink-500/5 to-indigo-500/10 border border-amber-500/20 shadow-xs text-left relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-16 h-16 bg-[#D97706]/5 rounded-full blur-xl pointer-events-none" />
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <Sparkles size={16} className="text-amber-500" />
-                  <div>
-                    <p className="text-[11px] font-bold text-gray-900 dark:text-white">
-                      AI Learning Roadmap
-                    </p>
-                    <p className="text-[10px] text-gray-500 dark:text-gray-400">
-                      Generate a custom study plan for this task
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => {
-                    if (!task.isLearningGoal) {
-                      handleToggleLearningGoal();
-                    } else {
-                      setActiveTab("learning_coach");
-                    }
-                  }}
-                  className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#D97706] to-[#5C27FE] text-white text-[10px] font-bold hover:opacity-90 transition-all cursor-pointer shadow-md inline-flex items-center gap-1.5"
-                >
-                  <BrainCircuit size={12} />
-                  <span>{task.isLearningGoal ? "Open Roadmap" : "Generate"}</span>
-                </button>
-              </div>
-            </div>
-          )}
 
           {/* Pomodoro Focus & Time Tracking Widget Card */}
           <div className="p-4 rounded-xl bg-white dark:bg-[#151525] border border-gray-100 dark:border-white/5 shadow-xs space-y-4 text-left relative overflow-hidden">
@@ -1173,6 +1378,52 @@ export default function TaskDetailDrawer({
               </div>
             )}
 
+            {/* Uploaded Document with AI Actions */}
+            {uploadedDocument && (
+              <div className="p-3 rounded-xl bg-gradient-to-r from-[#5C27FE]/10 to-[#D97706]/10 border border-[#5C27FE]/20 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FileText size={14} className="text-[#5C27FE]" />
+                    <span className="text-[10px] font-bold text-gray-800 dark:text-gray-200">
+                      {uploadedDocument.fileName}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setUploadedDocument(null)}
+                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      setSelectedAiCapability("summarize");
+                      setAiRequestInput(
+                        `Please summarize the uploaded document: ${uploadedDocument.fileName}`
+                      );
+                    }}
+                    className="flex-1 px-2 py-1.5 bg-[#5C27FE] text-white text-[9px] font-bold rounded-lg hover:opacity-90 transition-all flex items-center justify-center gap-1"
+                  >
+                    <Sparkles size={10} />
+                    <span>Summarize</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedAiCapability("study_notes");
+                      setAiRequestInput(
+                        `Create study notes from the uploaded document: ${uploadedDocument.fileName}`
+                      );
+                    }}
+                    className="flex-1 px-2 py-1.5 bg-[#D97706] text-white text-[9px] font-bold rounded-lg hover:opacity-90 transition-all flex items-center justify-center gap-1"
+                  >
+                    <BookOpen size={10} />
+                    <span>Study Notes</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Attachments List */}
             {task.attachments && task.attachments.length > 0 && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-48 overflow-y-auto">
@@ -1261,7 +1512,21 @@ export default function TaskDetailDrawer({
               </button>
 
               <button
-                onClick={() => setActiveTab("learning_coach")}
+                onClick={() => {
+                  setActiveTab("learning_coach");
+                  setTimeout(() => {
+                    const container = document.getElementById("drawer-scroll-container");
+                    const aiHub = document.getElementById("ai-learning-hub");
+                    if (container && aiHub) {
+                      container.scrollTo({ top: aiHub.offsetTop - 20, behavior: "smooth" });
+                    } else if (container && learningAssistantRef.current) {
+                      container.scrollTo({
+                        top: learningAssistantRef.current.offsetTop - 20,
+                        behavior: "smooth",
+                      });
+                    }
+                  }, 200);
+                }}
                 className={`py-2 text-xs font-bold border-b-2 tracking-wide uppercase transition-all flex items-center gap-1.5 cursor-pointer text-[#D97706] ${
                   activeTab === "learning_coach"
                     ? "border-amber-500 text-amber-600 dark:text-amber-400 dark:border-amber-400"
@@ -1397,7 +1662,11 @@ export default function TaskDetailDrawer({
 
             {/* INTENSITY AI LEARNING HUB & SMART ROADMAP CURATOR */}
             {activeTab === "learning_coach" && (
-              <div className="text-left space-y-5 animate-fadeIn">
+              <div
+                id="ai-learning-hub"
+                key={task.id}
+                className="text-left space-y-5 animate-fadeIn"
+              >
                 {!task.isLearningGoal ? (
                   <div className="p-6 rounded-xl bg-gradient-to-r from-amber-500/10 via-pink-500/5 to-indigo-500/10 border border-amber-500/20 text-center space-y-4">
                     <Sparkles size={32} className="mx-auto text-amber-500" />
@@ -1425,35 +1694,124 @@ export default function TaskDetailDrawer({
                       <div className="space-y-1 z-10 max-w-sm">
                         <p className="text-[10px] uppercase font-mono tracking-widest text-amber-600 dark:text-amber-400 font-bold flex items-center gap-1">
                           <Sparkles size={11} className="animate-spin text-amber-500" />
-                          Gemini Educational Architect
+                          AI Smart Learning Hub
                         </p>
                         <p className="text-xs text-gray-700 dark:text-gray-300 leading-relaxed">
-                          Transform this workspace task into a full curriculums roadmap. Gemini
-                          constructs study phases, resources, and custom practice sandboxes
-                          immediately.
+                          12+ AI capabilities to help you learn, create, and achieve more. Select a
+                          capability below to get started.
                         </p>
                       </div>
-
-                      {!task.aiRoadmap && (
-                        <button
-                          onClick={handleGenerateAI_Roadmap}
-                          disabled={isGeneratingRoadmap}
-                          className="btn-primary-shimmer ripple-effect px-4 py-2 bg-gradient-to-r from-[#D97706] to-[#5C27FE] text-white hover:opacity-90 font-bold text-xs rounded-xl shadow-md cursor-pointer disabled:opacity-50 inline-flex items-center gap-1.5 transition-all self-start"
-                        >
-                          {isGeneratingRoadmap ? (
-                            <>
-                              <div className="w-3.5 h-3.5 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                              <span>Mapping Curriculum...</span>
-                            </>
-                          ) : (
-                            <>
-                              <BrainCircuit size={13} />
-                              <span>Generate Roadmap</span>
-                            </>
-                          )}
-                        </button>
-                      )}
                     </div>
+
+                    {/* AI Capability Selector */}
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-gray-500">
+                        <BrainCircuit size={12} className="text-amber-500" />
+                        <span>Select AI Capability</span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                        {Object.entries(aiCapabilities).map(([category, capabilities]) => (
+                          <div key={category} className="space-y-1.5">
+                            <p className="text-[9px] font-bold uppercase tracking-wider text-gray-400 px-1">
+                              {category}
+                            </p>
+                            {capabilities.map((cap) => (
+                              <button
+                                key={cap.id}
+                                onClick={() => setSelectedAiCapability(cap.id)}
+                                className={`w-full text-left px-3 py-2.5 rounded-lg text-[10px] font-semibold transition-all ${
+                                  selectedAiCapability === cap.id
+                                    ? "bg-[#5C27FE] text-white border-2 border-[#5C27FE] shadow-md shadow-[#5C27FE]/20"
+                                    : "bg-white dark:bg-[#151525] border border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-300 hover:border-[#5C27FE]/50 hover:shadow-sm"
+                                }`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <cap.icon
+                                    size={14}
+                                    className={
+                                      selectedAiCapability === cap.id
+                                        ? "text-white"
+                                        : "text-[#5C27FE] dark:text-[#a085ff]"
+                                    }
+                                  />
+                                  <div className="flex-1">
+                                    <div className="font-semibold">{cap.label}</div>
+                                    <div
+                                      className={`text-[8px] mt-0.5 leading-tight ${selectedAiCapability === cap.id ? "text-white/80" : "text-gray-500 dark:text-gray-400"}`}
+                                    >
+                                      {cap.description}
+                                    </div>
+                                  </div>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* AI Request Input */}
+                    <div ref={learningAssistantRef} className="space-y-2">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                        Your Request
+                      </label>
+                      <textarea
+                        value={aiRequestInput}
+                        onChange={(e) => setAiRequestInput(e.target.value)}
+                        placeholder={getPlaceholder()}
+                        className="w-full text-xs bg-white dark:bg-[#151525] text-gray-900 dark:text-white px-3.5 py-2.5 rounded-xl border border-gray-200/50 dark:border-white/10 outline-none focus:border-[#5C27FE] resize-none"
+                        rows={3}
+                      />
+                      <button
+                        onClick={handleGenerateAIResponse}
+                        disabled={isProcessingAiRequest || !aiRequestInput.trim()}
+                        className="px-4 py-2 bg-gradient-to-r from-[#D97706] to-[#5C27FE] text-white hover:opacity-90 font-bold text-xs rounded-xl shadow-md cursor-pointer disabled:opacity-50 inline-flex items-center gap-1.5 transition-all"
+                      >
+                        {isProcessingAiRequest ? (
+                          <>
+                            <div className="w-3.5 h-3.5 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                            <span>Processing...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles size={13} />
+                            <span>Generate Response</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    {aiError && (
+                      <div className="p-3 rounded-lg bg-red-100 dark:bg-red-950/20 border border-red-200/20 text-xs text-red-600 dark:text-red-400 mt-2 font-bold leading-relaxed">
+                        🚨 {aiError}
+                      </div>
+                    )}
+
+                    {aiResponse && (
+                      <div className="space-y-2">
+                        <div className="p-4 rounded-xl bg-white dark:bg-[#151525] border border-gray-200 dark:border-white/10">
+                          <div className="prose prose-xs dark:prose-invert max-w-none">
+                            <ReactMarkdown>{aiResponse}</ReactMarkdown>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={handleCopyResponse}
+                            className="flex-1 px-3 py-2 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-300 text-[10px] font-bold rounded-lg hover:bg-gray-200 dark:hover:bg-white/10 transition-all flex items-center justify-center gap-1.5"
+                          >
+                            <Copy size={12} />
+                            <span>Copy</span>
+                          </button>
+                          <button
+                            onClick={handleSaveToNotes}
+                            className="flex-1 px-3 py-2 bg-[#5C27FE]/10 border border-[#5C27FE]/20 text-[#5C27FE] text-[10px] font-bold rounded-lg hover:bg-[#5C27FE]/20 transition-all flex items-center justify-center gap-1.5"
+                          >
+                            <Save size={12} />
+                            <span>Save to Task Notes</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
 
                     {roadmapError && (
                       <div className="p-3 rounded-lg bg-red-100 dark:bg-red-950/20 border border-red-200/20 text-xs text-amber-550 dark:text-red-400 mt-2 font-bold leading-relaxed">
@@ -1463,7 +1821,7 @@ export default function TaskDetailDrawer({
 
                     {/* AI generated structured Roadmap list */}
                     {task.aiRoadmap && (
-                      <div className="space-y-4 pt-1">
+                      <div id="roadmap-section" className="space-y-4 pt-1">
                         <div className="flex items-center justify-between">
                           <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500">
                             DYNAMIC ROADMAP STEPS

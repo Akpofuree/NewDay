@@ -7,6 +7,7 @@ import {
   generateTaskRoadmap,
   generateAICoachResponse,
   generateChatAssistantResponse,
+  getLearningCoachResponse,
 } from "../services/anthropic";
 import { mapTask } from "./tasks";
 
@@ -106,6 +107,24 @@ aiRouter.post("/chat-assistant", requireAuth, async (req, res, next) => {
     });
 
     res.json(assistantResponse);
+  } catch (error) {
+    next(error);
+  }
+});
+
+aiRouter.post("/learning-coach", requireAuth, async (req, res, next) => {
+  try {
+    const { feature, userRequest, taskTitle, taskDescription, documentText } = req.body;
+
+    const coachResponse = await getLearningCoachResponse({
+      feature,
+      userRequest,
+      taskTitle,
+      taskDescription,
+      documentText,
+    });
+
+    res.json(coachResponse);
   } catch (error) {
     next(error);
   }

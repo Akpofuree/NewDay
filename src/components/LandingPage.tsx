@@ -902,7 +902,7 @@ export default function LandingPage({
       {/* DETAILED BENTO GRID CAPABILITIES */}
       <section
         id="capabilities"
-        className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-16 relative z-10"
+        className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-16 lg:py-24 relative z-10"
       >
         <div className="text-center mb-10">
           <h2 className="text-xs font-bold text-[#5C27FE] dark:text-[#a085ff] uppercase tracking-widest mb-1.5 font-mono">
@@ -920,7 +920,7 @@ export default function LandingPage({
         {/* Bento Board Layout (Grid spacing is densified on small tablets/iPads, expanded on large workspace monitors) */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-5 md:gap-6 lg:gap-8 max-w-7xl mx-auto">
           {/* Bento Card: Real-time Multi-user Persistence (7 cols) */}
-          <div className="md:col-span-7 p-5 md:p-6 lg:p-10 rounded-3xl border border-gray-250/50 dark:border-white/10 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl flex flex-col justify-between relative overflow-hidden group hover:border-[#5C27FE]/30 transition-all duration-300">
+          <div className="md:col-span-7 p-5 md:p-6 lg:p-10 rounded-3xl border border-gray-200/50 dark:border-white/10 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl flex flex-col justify-between relative overflow-hidden group hover:border-[#5C27FE]/30 transition-all duration-300">
             <div className="absolute inset-0 bg-gradient-to-br from-[#5C27FE]/5 via-transparent to-[#0EA5E9]/5 pointer-events-none" />
             <div className="absolute top-0 right-0 w-44 h-44 rounded-full bg-[#5C27FE]/5 blur-3xl group-hover:bg-[#5C27FE]/10 transition-colors pointer-events-none" />
 
@@ -929,26 +929,26 @@ export default function LandingPage({
                 <Zap size={15} />
               </div>
               <h3 className="font-extrabold text-lg lg:text-xl text-slate-950 dark:text-white leading-tight">
-                No Mockups. Secure Server-Side Firebase Synchronization.
+                AI Task Assistant
               </h3>
               <p className="text-xs lg:text-sm text-slate-700 dark:text-slate-100 leading-relaxed font-normal">
-                Most task templates use mock database states that reset on page reload. NewDay
-                builds an actual server-side SQLite/Firestore bridging sync pipeline, allowing team
-                actions to persist, synchronize, and update dynamically in under 30ms latency.
+                Ask @ai to summarize documents, write reports, generate images, or break down
+                complex tasks. Get instant help with code explanations, error debugging, and
+                creative brainstorming.
               </p>
             </div>
 
             {/* Visual preview */}
-            <div className="pt-4 border-t border-gray-150/40 dark:border-white/5 flex items-center justify-between text-xs text-slate-600 dark:text-slate-300 font-mono">
+            <div className="pt-4 border-t border-gray-200/40 dark:border-white/5 flex items-center justify-between text-xs text-slate-600 dark:text-slate-300 font-mono">
               <span className="font-bold flex items-center gap-1.5 text-[#5C27FE] dark:text-[#a085ff]">
-                <CheckCircle2 size={12} /> SECURE CLIENT ADAPTER
+                <CheckCircle2 size={12} /> 12+ AI CAPABILITIES
               </span>
-              <span>Merge-Patch Set Writing</span>
+              <span>Smart Task Creation</span>
             </div>
           </div>
 
           {/* Bento Card: Responsive Dual Layout Architecture (5 cols) */}
-          <div className="md:col-span-5 p-5 md:p-6 lg:p-10 rounded-3xl border border-gray-250/50 dark:border-white/10 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl flex flex-col justify-between relative overflow-hidden group hover:border-[#0EA5E9]/30 transition-all duration-300">
+          <div className="md:col-span-5 p-5 md:p-6 lg:p-10 rounded-3xl border border-gray-200/50 dark:border-white/10 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl flex flex-col justify-between relative overflow-hidden group hover:border-[#0EA5E9]/30 transition-all duration-300">
             <div className="absolute bottom-0 right-0 w-36 h-36 rounded-full bg-[#0EA5E9]/5 blur-3xl pointer-events-none" />
 
             <div className="space-y-3 lg:space-y-5 pb-5 lg:pb-8">
@@ -977,7 +977,7 @@ export default function LandingPage({
           </div>
 
           {/* Bento Card: Gemini AI Curriculum Roadmap (5 cols) */}
-          <div className="md:col-span-5 p-5 md:p-6 lg:p-10 rounded-3xl border border-gray-250/50 dark:border-white/10 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl flex flex-col justify-between relative overflow-hidden group hover:border-[#FF4D4D]/30 transition-all duration-300">
+          <div className="md:col-span-5 p-5 md:p-6 lg:p-10 rounded-3xl border border-gray-200/50 dark:border-white/10 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl flex flex-col justify-between relative overflow-hidden group hover:border-[#FF4D4D]/30 transition-all duration-300">
             <div className="absolute top-0 left-0 w-32 h-32 rounded-full bg-[#FF4D4D]/5 blur-3xl pointer-events-none" />
 
             <div className="space-y-3 lg:space-y-5 pb-5 lg:pb-8">
@@ -1001,7 +1001,7 @@ export default function LandingPage({
           </div>
 
           {/* Bento Card: Comprehensive Team Analytics & Synergy Goals (7 cols) */}
-          <div className="md:col-span-7 p-5 md:p-6 lg:p-10 rounded-3xl border border-gray-250/50 dark:border-white/10 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl flex flex-col justify-between relative overflow-hidden group hover:border-[#FFB020]/30 transition-all duration-300">
+          <div className="md:col-span-7 p-5 md:p-6 lg:p-10 rounded-3xl border border-gray-200/50 dark:border-white/10 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl flex flex-col justify-between relative overflow-hidden group hover:border-[#FFB020]/30 transition-all duration-300">
             <div className="absolute right-0 bottom-0 w-44 h-44 rounded-full bg-[#FFB020]/5 blur-3xl pointer-events-none" />
 
             <div className="space-y-3 lg:space-y-5 pb-6 lg:pb-10">
@@ -1018,7 +1018,7 @@ export default function LandingPage({
               </p>
             </div>
 
-            <div className="pt-4 border-t border-gray-150/40 dark:border-white/5 flex items-center gap-4 text-xs font-mono text-slate-600 dark:text-slate-300">
+            <div className="pt-4 border-t border-gray-200/40 dark:border-white/5 flex items-center gap-4 text-xs font-mono text-slate-600 dark:text-slate-300">
               <span className="flex items-center gap-1.5">
                 <Check size={12} className="text-[#FFB020]" /> Streaks Tracker
               </span>

@@ -1,12 +1,5 @@
 import { type FC } from "react";
-import {
-  Timer,
-  BarChart3,
-  Flame,
-  PauseCircle,
-  PlayCircle,
-  ShieldCheck,
-} from "lucide-react";
+import { Timer, BarChart3, Flame, PauseCircle, PlayCircle, ShieldCheck } from "lucide-react";
 import PulsatingButton from "../../registry/magicui/pulsating-button";
 
 interface FocusAnalyticsSectionProps {
@@ -36,7 +29,7 @@ const FocusAnalyticsSection: FC<FocusAnalyticsSectionProps> = ({
       className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-16 lg:py-24 relative z-10"
     >
       <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr] items-stretch">
-        <article className="rounded-[32px] border border-gray-200/70 dark:border-white/10 bg-white/95 dark:bg-slate-950/75 shadow-2xl shadow-slate-900/5 dark:shadow-black/20 overflow-hidden">
+        <article className="rounded-3xl border border-gray-200/50 dark:border-white/10 bg-white/95 dark:bg-slate-950/75 shadow-2xl shadow-slate-900/5 dark:shadow-black/20 overflow-hidden">
           <div className="p-8 xl:p-10 space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div className="flex items-center gap-3 text-slate-950 dark:text-white">
@@ -59,12 +52,11 @@ const FocusAnalyticsSection: FC<FocusAnalyticsSectionProps> = ({
             </div>
 
             <p className="text-sm text-slate-600 dark:text-slate-300 max-w-2xl leading-relaxed">
-              Isolate critical tasks. Start a dedicated sprint to mute
-              surrounding workspace notifications, block background chat noise,
-              and focus on one specific item.
+              Isolate critical tasks. Start a dedicated sprint to mute surrounding workspace
+              notifications, block background chat noise, and focus on one specific item.
             </p>
 
-            <div className="rounded-[28px] border border-gray-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900/70 p-8 relative overflow-hidden">
+            <div className="rounded-3xl border border-gray-200/50 dark:border-white/10 bg-slate-50 dark:bg-slate-900/70 p-8 relative overflow-hidden">
               <div className="absolute right-6 top-6 h-24 w-24 rounded-full bg-[#5C27FE]/10 blur-3xl" />
               <div className="absolute left-6 bottom-6 h-24 w-24 rounded-full bg-[#0EA5E9]/10 blur-3xl" />
 
@@ -84,7 +76,7 @@ const FocusAnalyticsSection: FC<FocusAnalyticsSectionProps> = ({
                   </div>
                 </div>
 
-                <div className="rounded-[28px] bg-white dark:bg-slate-950 px-8 py-10 border border-gray-200 dark:border-white/10 shadow-lg">
+                <div className="rounded-3xl bg-white dark:bg-slate-950 px-8 py-10 border border-gray-200/50 dark:border-white/10 shadow-lg">
                   <div className="flex items-center justify-between gap-4">
                     <div>
                       <p className="text-[10px] uppercase tracking-[0.35em] text-gray-400 dark:text-gray-500 font-bold">
@@ -125,26 +117,22 @@ const FocusAnalyticsSection: FC<FocusAnalyticsSectionProps> = ({
             <PulsatingButton
               type="button"
               onClick={onToggleFocusStatus}
-              className="inline-flex items-center gap-2"
+              className="inline-flex items-center gap-2 mx-auto sm:mx-0"
               buttonClassName="rounded-full bg-[#FFB020] px-6 py-3 text-sm font-bold text-slate-950 shadow-lg shadow-[#FFB020]/20 hover:bg-[#f2a000] transition-all"
               pulseColor="rgba(255, 176, 32, 0.65)"
             >
-              {focusStatusActive ? (
-                <PauseCircle size={18} />
-              ) : (
-                <PlayCircle size={18} />
-              )}
+              {focusStatusActive ? <PauseCircle size={18} /> : <PlayCircle size={18} />}
               {focusStatusActive ? "Pause Active Focus" : "Resume Focus"}
             </PulsatingButton>
 
             <p className="text-[11px] text-gray-500 dark:text-gray-400">
-              Complete focus grants +50 XP multiplier points. Keep the timer
-              active to maintain flow and reduce task switching.
+              Complete focus grants +50 XP multiplier points. Keep the timer active to maintain flow
+              and reduce task switching.
             </p>
           </div>
         </article>
 
-        <article className="rounded-[32px] border border-gray-200/70 dark:border-white/10 bg-white/95 dark:bg-slate-950/75 shadow-2xl shadow-slate-900/5 dark:shadow-black/20 overflow-hidden">
+        <article className="rounded-3xl border border-gray-200/50 dark:border-white/10 bg-white/95 dark:bg-slate-950/75 shadow-2xl shadow-slate-900/5 dark:shadow-black/20 overflow-hidden">
           <div className="p-8 xl:p-10 space-y-6">
             <div className="flex items-center gap-3 text-slate-950 dark:text-white">
               <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[#0EA5E9]/10 text-[#0EA5E9] shadow-sm">
@@ -161,13 +149,13 @@ const FocusAnalyticsSection: FC<FocusAnalyticsSectionProps> = ({
             </div>
 
             <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-              NewDay automatically splits your task list by importance tiers.
-              Urgent & High tasks represent crucial focus priorities, while
-              Medium & Low are categorized as day-to-day operational items.
+              NewDay automatically splits your task list by importance tiers. Urgent & High tasks
+              represent crucial focus priorities, while Medium & Low are categorized as day-to-day
+              operational items.
             </p>
 
             <div className="space-y-5">
-              <div className="rounded-3xl bg-slate-50 dark:bg-slate-900/60 p-5 border border-gray-200 dark:border-white/10">
+              <div className="rounded-3xl bg-slate-50 dark:bg-slate-900/60 p-5 border border-gray-200/50 dark:border-white/10">
                 <div className="flex items-center justify-between gap-4 mb-4">
                   <span className="text-[10px] uppercase tracking-[0.35em] font-bold text-gray-500 dark:text-gray-400">
                     Important (Urgent & High)
@@ -184,7 +172,7 @@ const FocusAnalyticsSection: FC<FocusAnalyticsSectionProps> = ({
                 </div>
               </div>
 
-              <div className="rounded-3xl bg-slate-50 dark:bg-slate-900/60 p-5 border border-gray-200 dark:border-white/10">
+              <div className="rounded-3xl bg-slate-50 dark:bg-slate-900/60 p-5 border border-gray-200/50 dark:border-white/10">
                 <div className="flex items-center justify-between gap-4 mb-4">
                   <span className="text-[10px] uppercase tracking-[0.35em] font-bold text-gray-500 dark:text-gray-400">
                     Non-Important (Medium & Low)
@@ -205,21 +193,16 @@ const FocusAnalyticsSection: FC<FocusAnalyticsSectionProps> = ({
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="rounded-3xl border border-gray-200 dark:border-white/10 bg-white/80 dark:bg-slate-900/80 p-4 text-[11px] font-bold uppercase tracking-[0.25em] text-slate-700 dark:text-slate-300">
                 <span className="text-[#EF4444]">Urgent Safety Limit</span>
-                <p className="mt-2 text-sm text-slate-950 dark:text-white">
-                  2 active tasks
-                </p>
+                <p className="mt-2 text-sm text-slate-950 dark:text-white">2 active tasks</p>
               </div>
               <div className="rounded-3xl border border-gray-200 dark:border-white/10 bg-white/80 dark:bg-slate-900/80 p-4 text-[11px] font-bold uppercase tracking-[0.25em] text-slate-700 dark:text-slate-300">
                 <span className="text-[#10B981]">Milestone Streak</span>
-                <p className="mt-2 text-sm text-slate-950 dark:text-white">
-                  +12 days consistent
-                </p>
+                <p className="mt-2 text-sm text-slate-950 dark:text-white">+12 days consistent</p>
               </div>
             </div>
 
             <div className="rounded-3xl border border-gray-200 dark:border-white/10 bg-slate-50/80 dark:bg-slate-900/70 p-4 text-[11px] text-slate-500 dark:text-slate-400">
-              Our database synchronization metrics map progress updates in 24ms
-              live latency cycles.
+              Our database synchronization metrics map progress updates in 24ms live latency cycles.
             </div>
 
             <div className="rounded-3xl bg-[#5C27FE]/10 border border-[#5C27FE]/15 p-4 text-[11px] text-[#5C27FE] font-bold text-center">

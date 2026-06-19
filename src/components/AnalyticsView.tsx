@@ -10,10 +10,11 @@ interface AnalyticsViewProps {
 }
 
 function computeGoalProgress(goal: Goal, tasks: Task[]) {
-  const milestones = goal.milestones || [];
+  const milestones = Array.isArray(goal.milestones) ? goal.milestones : [];
+  const linkedTaskIds = Array.isArray(goal.linkedTaskIds) ? goal.linkedTaskIds : [];
   const completedMilestones = milestones.filter((m) => m.completed).length;
   const totalMilestones = milestones.length;
-  const linkedTasks = tasks.filter((t) => goal.linkedTaskIds.includes(t.id));
+  const linkedTasks = tasks.filter((t) => linkedTaskIds.includes(t.id));
   const completedTasks = linkedTasks.filter((t) => t.status === "completed").length;
 
   if (totalMilestones > 0 && linkedTasks.length > 0) {
@@ -111,7 +112,9 @@ export default function AnalyticsView({ tasks, goals, users, groups }: Analytics
   const averageGoalProgress = totalGoals
     ? Math.round(goalProgresses.reduce((sum, value) => sum + value, 0) / totalGoals)
     : 0;
-  const linkedTaskCount = new Set(goals.flatMap((goal) => goal.linkedTaskIds)).size;
+  const linkedTaskCount = new Set(
+    goals.flatMap((goal) => (Array.isArray(goal.linkedTaskIds) ? goal.linkedTaskIds : []))
+  ).size;
 
   const groupStats = groups.map((g) => {
     const groupTasks = tasks.filter((t) => t.groupId === g.id);
@@ -126,9 +129,9 @@ export default function AnalyticsView({ tasks, goals, users, groups }: Analytics
   });
 
   return (
-    <div className="space-y-6 text-left animate-fadeIn">
+    <div className="space-y-6 text-left animate-fadeIn px-2 sm:px-0">
       {/* Overview Analytics Bento Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
         {/* Core Radial Donut card */}
         <div className="glass-card p-5 rounded-2xl flex flex-col justify-between relative overflow-hidden">
           <div className="flex items-center justify-between mb-4">
