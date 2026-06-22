@@ -3,9 +3,9 @@ CREATE TABLE IF NOT EXISTS invite_links (
   id TEXT PRIMARY KEY,
   group_id TEXT NOT NULL,
   token TEXT UNIQUE NOT NULL,
-  created_by TEXT NOT NULL,
-  created_at TEXT NOT NULL,
-  expires_at TEXT,
+  created_by UUID NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  expires_at TIMESTAMPTZ,
   is_active INTEGER DEFAULT 1,
   FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE,
   FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
