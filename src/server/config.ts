@@ -17,7 +17,6 @@ export const config = {
   googleClientId: process.env.GOOGLE_CLIENT_ID || "",
   anthropicApiKey: process.env.ANTHROPIC_API_KEY || "",
   geminiApiKey: process.env.GEMINI_API_KEY || "",
-  resendApiKey: process.env.RESEND_API_KEY || "",
   adminEmails: parseOrigins(process.env.ADMIN_EMAILS).map((email) =>
     email.toLowerCase(),
   ),
@@ -44,6 +43,10 @@ export function assertRequiredConfig() {
   if (!config.googleClientId) missing.push("GOOGLE_CLIENT_ID");
   if (!config.anthropicApiKey && !config.geminiApiKey)
     missing.push("GEMINI_API_KEY or ANTHROPIC_API_KEY");
+
+  if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
+    throw new Error("Missing Gmail SMTP credentials in environment variables");
+  }
 
   if (missing.length > 0) {
     throw new Error(

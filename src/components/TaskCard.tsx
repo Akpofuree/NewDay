@@ -11,6 +11,7 @@ import {
   Edit2,
   Play,
   CheckCircle2,
+  UserCheck,
 } from "lucide-react";
 import React, { useState } from "react";
 
@@ -202,6 +203,13 @@ export default function TaskCard({
               {isOverdue && (
                 <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-red-100 text-[#FF4D4D] dark:bg-rose-950/20 animate-pulse">
                   Overdue
+                </span>
+              )}
+
+              {task.assignedByName && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold tracking-wider px-2 py-0.5 rounded-full bg-[#5C27FE]/10 text-[#5C27FE] dark:bg-[#5C27FE]/20 dark:text-[#a085ff]">
+                  <UserCheck size={10} />
+                  Assigned by {task.assignedByName}
                 </span>
               )}
             </div>
@@ -422,6 +430,15 @@ export default function TaskCard({
             {task.priority}
           </span>
         </div>
+
+        {task.assignedByName && (
+          <div className="mb-1.5 flex">
+            <span className="inline-flex items-center gap-1 text-[9px] font-bold tracking-wider px-2 py-0.5 rounded-full bg-[#5C27FE]/10 text-[#5C27FE] dark:bg-[#5C27FE]/20 dark:text-[#a085ff]">
+              <UserCheck size={9} />
+              Assigned by {task.assignedByName}
+            </span>
+          </div>
+        )}
 
         <h4
           className={`text-xs font-bold text-gray-900 dark:text-white leading-snug line-clamp-2 mb-1.5 ${isCompleted ? "completed-task-title text-gray-400 dark:text-gray-500" : ""}`}

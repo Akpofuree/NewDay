@@ -12,6 +12,7 @@ import {
   Trash2,
   CheckCircle2,
 } from "lucide-react";
+import { useToast } from "./Toast";
 
 interface GoalsViewProps {
   goals: Goal[];
@@ -20,12 +21,8 @@ interface GoalsViewProps {
   onOpenTaskDetails?: (task: Task) => void;
 }
 
-export default function GoalsView({
-  goals,
-  setGoals,
-  tasks,
-  onOpenTaskDetails,
-}: GoalsViewProps) {
+export default function GoalsView({ goals, setGoals, tasks, onOpenTaskDetails }: GoalsViewProps) {
+  const { showConfirm, showToast } = useToast();
   const [isCreatingGoal, setIsCreatingGoal] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newDesc, setNewDesc] = useState("");
@@ -40,13 +37,10 @@ export default function GoalsView({
 
   const computeGoalProgress = (goal: Goal) => {
     const totalMilestones = goal.milestones?.length || 0;
-    const completedMilestones =
-      goal.milestones?.filter((m) => m.completed).length || 0;
+    const completedMilestones = goal.milestones?.filter((m) => m.completed).length || 0;
     const linkedTasks = tasks.filter((t) => goal.linkedTaskIds.includes(t.id));
     const totalTasks = linkedTasks.length;
-    const completedTasks = linkedTasks.filter(
-      (t) => t.status === "completed",
-    ).length;
+    const completedTasks = linkedTasks.filter((t) => t.status === "completed").length;
 
     if (totalMilestones > 0 && totalTasks > 0) {
       const mRate = (completedMilestones / totalMilestones) * 100;
@@ -55,10 +49,7 @@ export default function GoalsView({
     }
 
     if (totalMilestones > 0) {
-      return Math.min(
-        100,
-        Math.round((completedMilestones / totalMilestones) * 100),
-      );
+      return Math.min(100, Math.round((completedMilestones / totalMilestones) * 100));
     }
 
     if (totalTasks > 0) {
@@ -88,9 +79,7 @@ export default function GoalsView({
       }
 
       const updatedGoal = await response.json();
-      setGoals((prev) =>
-        prev.map((item) => (item.id === goal.id ? updatedGoal : item)),
-      );
+      setGoals((prev) => prev.map((item) => (item.id === goal.id ? updatedGoal : item)));
       return updatedGoal;
     } catch (error) {
       console.error("Failed to persist goal:", error);
@@ -107,22 +96,22 @@ export default function GoalsView({
 
       if (!response.ok) {
         console.error("Failed to create goal:", await response.text());
+        showToast("error", "Failed to create goal.");
         return;
       }
 
       const createdGoal = await response.json();
       setGoals((prev) => [...prev, createdGoal]);
+      showToast("success", "Goal created.");
     } catch (error) {
       console.error("Failed to create goal:", error);
+      showToast("error", "Failed to create goal.");
     }
   };
 
   const deleteGoal = async (goalId: string) => {
-    if (
-      !confirm(
-        "Are you certain you want to remove this strategic workspace goal?",
-      )
-    ) {
+    const confirmed = await showConfirm("Remove this goal?");
+    if (!confirmed) {
       return;
     }
 
@@ -133,12 +122,15 @@ export default function GoalsView({
 
       if (!response.ok) {
         console.error("Failed to delete goal:", await response.text());
+        showToast("error", "Failed to delete goal.");
         return;
       }
 
       setGoals((prev) => prev.filter((g) => g.id !== goalId));
+      showToast("success", "Goal deleted.");
     } catch (error) {
       console.error("Failed to delete goal:", error);
+      showToast("error", "Failed to delete goal.");
     }
   };
 
@@ -176,11 +168,7 @@ export default function GoalsView({
     setIsCreatingGoal(false);
   };
 
-  const handleToggleMilestone = async (
-    goalId: string,
-    milestoneIdx: number,
-    done: boolean,
-  ) => {
+  const handleToggleMilestone = async (goalId: string, milestoneIdx: number, done: boolean) => {
     const updatedGoals = goals.map((goal) => {
       if (goal.id !== goalId) return goal;
 
@@ -232,8 +220,8 @@ export default function GoalsView({
               <Sparkles size={13} className="text-amber-500 animate-spin" />
             </h4>
             <p className="text-xs text-secondary mt-0.5 leading-relaxed">
-              Track multi-level milestones and align related operational task
-              elements to monitor combined progress.
+              Track multi-level milestones and align related operational task elements to monitor
+              combined progress.
             </p>
           </div>
         </div>
@@ -272,10 +260,7 @@ export default function GoalsView({
             <span>Formulate Next Milestone Goal Target</span>
           </h4>
 
-          <form
-            onSubmit={handleSubmitGoal}
-            className="grid grid-cols-1 md:grid-cols-2 gap-5"
-          >
+          <form onSubmit={handleSubmitGoal} className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div className="space-y-4">
               <div>
                 <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">
@@ -337,9 +322,7 @@ export default function GoalsView({
                           if (e.target.checked) {
                             setSelectedTaskIds((prev) => [...prev, t.id]);
                           } else {
-                            setSelectedTaskIds((prev) =>
-                              prev.filter((x) => x !== t.id),
-                            );
+                            setSelectedTaskIds((prev) => prev.filter((x) => x !== t.id));
                           }
                         }}
                         className="w-3 h-3 text-[#5C27FE] rounded"
@@ -362,8 +345,7 @@ export default function GoalsView({
                     onChange={(e) => setNewMilestoneInput(e.target.value)}
                     className="flex-1 text-xs bg-gray-50 dark:bg-black/15 text-gray-900 dark:text-white px-2.5 py-1.5 rounded-lg border border-gray-200/50 dark:border-white/10 outline-none"
                     onKeyDown={(e) =>
-                      e.key === "Enter" &&
-                      (e.preventDefault(), handleAddTempMilestone(e))
+                      e.key === "Enter" && (e.preventDefault(), handleAddTempMilestone(e))
                     }
                   />
                   <button
@@ -418,9 +400,7 @@ export default function GoalsView({
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {goals.map((g) => {
-          const linkedTasks = tasks.filter((t) =>
-            g.linkedTaskIds.includes(t.id),
-          );
+          const linkedTasks = tasks.filter((t) => g.linkedTaskIds.includes(t.id));
 
           return (
             <div
@@ -519,9 +499,7 @@ export default function GoalsView({
                 <div className="space-y-1.5">
                   <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider">
                     <span className="text-gray-400">Progression Depth</span>
-                    <span className="text-[#FF4D4D] font-mono">
-                      {g.progress}% Complete
-                    </span>
+                    <span className="text-[#FF4D4D] font-mono">{g.progress}% Complete</span>
                   </div>
                   <div className="relative h-2 bg-gray-100 dark:bg-white/10 rounded-full overflow-hidden">
                     <div className="absolute inset-y-0 left-1/4 w-px bg-white/40" />
@@ -554,9 +532,7 @@ export default function GoalsView({
                           <input
                             type="checkbox"
                             checked={milestone.completed}
-                            onChange={(e) =>
-                              handleToggleMilestone(g.id, idx, e.target.checked)
-                            }
+                            onChange={(e) => handleToggleMilestone(g.id, idx, e.target.checked)}
                             className="w-3.5 h-3.5 text-[#FF4D4D] border-gray-300 dark:border-white/20 rounded focus:ring-0"
                           />
                           <span
@@ -579,9 +555,7 @@ export default function GoalsView({
                       {linkedTasks.map((task) => (
                         <button
                           key={task.id}
-                          onClick={() =>
-                            onOpenTaskDetails && onOpenTaskDetails(task)
-                          }
+                          onClick={() => onOpenTaskDetails && onOpenTaskDetails(task)}
                           className={`text-[10px] font-bold px-2 py-0.75 rounded-lg border flex items-center gap-1 cursor-pointer transition-colors ${
                             task.status === "completed"
                               ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
@@ -592,14 +566,10 @@ export default function GoalsView({
                           <CheckCircle2
                             size={10}
                             className={
-                              task.status === "completed"
-                                ? "text-emerald-500"
-                                : "text-gray-450"
+                              task.status === "completed" ? "text-emerald-500" : "text-gray-450"
                             }
                           />
-                          <span className="truncate max-w-30">
-                            {task.title}
-                          </span>
+                          <span className="truncate max-w-30">{task.title}</span>
                         </button>
                       ))}
                     </div>
@@ -617,8 +587,8 @@ export default function GoalsView({
               Strategic objectives grid is empty
             </h5>
             <p className="text-xs text-gray-500 max-w-sm">
-              Formulate strategic milestone indicators and map collaborative
-              sprint tasks to monitor progress levels together.
+              Formulate strategic milestone indicators and map collaborative sprint tasks to monitor
+              progress levels together.
             </p>
           </div>
         )}

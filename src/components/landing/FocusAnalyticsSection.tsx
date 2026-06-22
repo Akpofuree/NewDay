@@ -31,8 +31,8 @@ const FocusAnalyticsSection: FC<FocusAnalyticsSectionProps> = ({
       <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr] items-stretch">
         <article className="rounded-3xl border border-gray-200/50 dark:border-white/10 bg-white/95 dark:bg-slate-950/75 shadow-2xl shadow-slate-900/5 dark:shadow-black/20 overflow-hidden">
           <div className="p-8 xl:p-10 space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div className="flex items-center gap-3 text-slate-950 dark:text-white">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 text-center sm:text-left">
+              <div className="flex items-center justify-center sm:justify-start gap-3 text-slate-950 dark:text-white">
                 <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[#5C27FE]/10 text-[#5C27FE] shadow-sm">
                   <Timer size={20} />
                 </span>
@@ -45,7 +45,7 @@ const FocusAnalyticsSection: FC<FocusAnalyticsSectionProps> = ({
                   </h3>
                 </div>
               </div>
-              <span className="inline-flex items-center gap-2 rounded-full border border-[#5C27FE]/20 bg-[#5C27FE]/10 px-3 py-1 text-[11px] font-bold text-[#5C27FE]">
+              <span className="inline-flex items-center gap-2 rounded-full border border-[#5C27FE]/20 bg-[#5C27FE]/10 px-3 py-1 text-[11px] font-bold text-[#5C27FE] self-center sm:self-auto">
                 <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
                 {focusStatusActive ? "Active Isolate" : "Paused"}
               </span>
@@ -61,8 +61,8 @@ const FocusAnalyticsSection: FC<FocusAnalyticsSectionProps> = ({
               <div className="absolute left-6 bottom-6 h-24 w-24 rounded-full bg-[#0EA5E9]/10 blur-3xl" />
 
               <div className="relative z-10 space-y-5">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                  <div className="text-center sm:text-left">
                     <p className="text-[10px] uppercase tracking-[0.35em] text-gray-500 dark:text-gray-400 font-bold">
                       Focus Target
                     </p>
@@ -70,27 +70,27 @@ const FocusAnalyticsSection: FC<FocusAnalyticsSectionProps> = ({
                       {focusSelectedPeriod} minutes sprint
                     </p>
                   </div>
-                  <div className="inline-flex items-center gap-2 rounded-full bg-white/90 dark:bg-slate-950/90 px-3 py-2 text-[11px] font-bold text-slate-700 dark:text-slate-100 shadow-sm border border-gray-200 dark:border-white/10">
+                  <div className="inline-flex items-center gap-2 rounded-full bg-white/90 dark:bg-slate-950/90 px-3 py-2 text-[11px] font-bold text-slate-700 dark:text-slate-100 shadow-sm border border-gray-200 dark:border-white/10 self-center sm:self-auto">
                     <Flame size={14} className="text-[#FF4D4D]" />
                     {focusStatusActive ? "+50 XP" : "+0 XP"}
                   </div>
                 </div>
 
-                <div className="rounded-3xl bg-white dark:bg-slate-950 px-8 py-10 border border-gray-200/50 dark:border-white/10 shadow-lg">
-                  <div className="flex items-center justify-between gap-4">
-                    <div>
+                <div className="rounded-3xl bg-white dark:bg-slate-950 px-5 sm:px-8 py-8 sm:py-10 border border-gray-200/50 dark:border-white/10 shadow-lg">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-5">
+                    <div className="text-center sm:text-left">
                       <p className="text-[10px] uppercase tracking-[0.35em] text-gray-400 dark:text-gray-500 font-bold">
                         Remaining
                       </p>
-                      <p className="text-5xl sm:text-6xl font-black text-slate-950 dark:text-white">
+                      <p className="text-4xl sm:text-6xl font-black text-slate-950 dark:text-white tabular-nums leading-none">
                         {formatTime(focusCounterSeconds)}
                       </p>
                     </div>
-                    <div className="text-right">
+                    <div className="text-center sm:text-right">
                       <p className="text-[10px] uppercase tracking-[0.35em] text-gray-400 dark:text-gray-500 font-bold">
                         Status
                       </p>
-                      <p className="text-sm font-bold text-slate-800 dark:text-slate-200 mt-1">
+                      <p className="text-sm font-bold text-slate-800 dark:text-slate-200 mt-1 whitespace-nowrap">
                         {focusStatusActive ? "In progress" : "Paused"}
                       </p>
                     </div>

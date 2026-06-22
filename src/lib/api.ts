@@ -2,10 +2,29 @@ const API_URL =
   import.meta.env.VITE_API_URL || (typeof window !== "undefined" ? window.location.origin : "");
 
 export function apiPath(path: string) {
-  if (API_URL) {
-    return `${API_URL}${path.startsWith("/") ? path : `/${path}`}`;
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  if (
+    typeof window !== "undefined" &&
+    window.location.hostname !== "localhost" &&
+    window.location.hostname !== "127.0.0.1"
+  ) {
+    return API_URL ? `${API_URL}${normalizedPath}` : normalizedPath;
   }
-  return path.startsWith("/") ? path : `/${path}`;
+
+  if (
+    typeof window !== "undefined" &&
+    API_URL &&
+    /^https?:\/\/(localhost|127\.0\.0\.1):3000\/?$/.test(API_URL)
+  ) {
+    // In local dev, route through the Vite proxy so the frontend can reach the API
+    // even when the backend is restarted separately.
+    return normalizedPath;
+  }
+
+  if (API_URL) {
+    return `${API_URL}${normalizedPath}`;
+  }
+  return normalizedPath;
 }
 
 export function apiFetch(path: string, init: RequestInit = {}, options?: { retryOn429?: boolean }) {
@@ -93,4 +112,14 @@ export function apiFetch(path: string, init: RequestInit = {}, options?: { retry
   };
 
   return fetchWithRetry();
+}
+
+export async function readJsonResponse<T = any>(response: Response): Promise<T | null> {
+  const text = await response.text();
+  if (!text.trim()) return null;
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    return null;
+  }
 }

@@ -14,6 +14,7 @@ import {
 import NotesEditor from "./NotesEditor";
 import {
   X,
+  UserCheck,
   Calendar,
   Plus,
   MessageSquare,
@@ -47,6 +48,7 @@ import {
   Map,
 } from "lucide-react";
 import { apiFetch } from "../lib/api";
+import { useToast } from "./Toast";
 
 interface TaskDetailDrawerProps {
   isOpen: boolean;
@@ -71,6 +73,8 @@ export default function TaskDetailDrawer({
   onDeleteTask,
   handleToggleComplete,
 }: TaskDetailDrawerProps) {
+  const { showConfirm } = useToast();
+  const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<"comments" | "activity" | "learning_coach" | "notes">(
     "comments"
   );
@@ -93,6 +97,7 @@ export default function TaskDetailDrawer({
   // 2. Drag and Drop File Attachments State
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [isUploadingFile, setIsUploadingFile] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadError, setUploadError] = useState("");
 
   // 3. AI Learning Assistant State
@@ -269,11 +274,11 @@ export default function TaskDetailDrawer({
           onUpdateTask(withAct);
         }
 
-        alert("🍅 Focus Session complete! Time for a well-deserved 5-minute break.");
+        showToast("success", "Focus session complete. Time for a 5-minute break.");
         setPomodoroMode("break");
         setTimeLeft(300); // 5 minutes breather
       } else {
-        alert(" Breathe in... Breath out. Rest cycle completed, ready to jump back in?");
+        showToast("info", "Rest cycle completed. Ready to jump back in?");
         setPomodoroMode("focus");
         setTimeLeft(1500); // Back to focus!
       }
@@ -448,7 +453,8 @@ export default function TaskDetailDrawer({
     const allCompletedAfterThis =
       updatedSubtasks.length > 0 && updatedSubtasks.every((s) => s.isCompleted);
     if (allCompletedAfterThis && task.status !== "completed") {
-      if (confirm("All subtasks done. Mark task as complete?")) {
+      const confirmed = await showConfirm("All subtasks are done. Mark this task complete?");
+      if (confirmed) {
         // Prefer calling handleToggleComplete if available
         if (typeof handleToggleComplete === "function") {
           handleToggleComplete(task.id);
@@ -570,6 +576,7 @@ export default function TaskDetailDrawer({
 
   const processAttachmentUpload = async (file: File) => {
     setIsUploadingFile(true);
+    setUploadProgress(8);
     setUploadError("");
 
     try {
@@ -580,6 +587,7 @@ export default function TaskDetailDrawer({
         reader.readAsDataURL(file);
       });
       const base64Url = await base64Promise;
+      setUploadProgress(45);
 
       // Submit to real Express proxy endpoint!
       const res = await apiFetch("/api/attachments/upload", {
@@ -595,6 +603,7 @@ export default function TaskDetailDrawer({
       if (!res.ok) {
         throw new Error("Upload request rejected on primary gateway server.");
       }
+      setUploadProgress(78);
 
       const fileObj: Attachment = await res.json();
 
@@ -615,6 +624,7 @@ export default function TaskDetailDrawer({
 
       if (supportedTypes.includes(file.type)) {
         try {
+          setUploadProgress(88);
           const extractRes = await apiFetch("/api/attachments/extract-text", {
             method: "POST",
             body: JSON.stringify({
@@ -636,10 +646,12 @@ export default function TaskDetailDrawer({
           // Don't fail the upload if text extraction fails
         }
       }
+      setUploadProgress(100);
     } catch (err: any) {
       setUploadError(err.message || "Failure deploying attachment files.");
     } finally {
       setIsUploadingFile(false);
+      window.setTimeout(() => setUploadProgress(0), 700);
     }
   };
 
@@ -940,8 +952,9 @@ export default function TaskDetailDrawer({
             </button>
 
             <button
-              onClick={() => {
-                if (confirm("Are you strictly sure you want to delete this task?")) {
+              onClick={async () => {
+                const confirmed = await showConfirm("Delete this task?");
+                if (confirmed) {
                   onDeleteTask(task.id);
                   onClose();
                 }
@@ -987,6 +1000,12 @@ export default function TaskDetailDrawer({
             )}
             <div className="flex items-center gap-2 mt-1.5 px-2">
               <span className="text-[9px] text-gray-400 font-mono">ID: {task.id}</span>
+              {task.assignedByName && (
+                <span className="inline-flex items-center gap-1 text-[9px] font-bold tracking-wider px-2 py-0.5 rounded-full bg-[#5C27FE]/10 text-[#5C27FE] dark:bg-[#5C27FE]/20 dark:text-[#a085ff]">
+                  <UserCheck size={9} />
+                  Assigned by {task.assignedByName}
+                </span>
+              )}
               {task.isLearningGoal && (
                 <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-amber-600 bg-amber-500/10 px-1.5 py-0.5 rounded-full">
                   <Flame size={8} className="animate-pulse" />
@@ -1362,9 +1381,20 @@ export default function TaskDetailDrawer({
               </p>
 
               {isUploadingFile && (
-                <div className="absolute inset-0 bg-white/80 dark:bg-[#121220]/85 backdrop-blur-xs flex items-center justify-center flex-col space-y-1 rounded-xl">
-                  <div className="w-4.5 h-4.5 rounded-full border-2 border-[#5C27FE] border-t-transparent animate-spin" />
-                  <p className="text-[10px] font-extrabold text-[#5C27FE] uppercase tracking-wider">
+                <div className="absolute inset-0 bg-white/85 dark:bg-[#121220]/88 backdrop-blur-xs flex items-center justify-center flex-col space-y-3 rounded-xl px-4">
+                  <div className="w-full max-w-[240px] space-y-2">
+                    <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-[#5C27FE]">
+                      <span>Uploading file</span>
+                      <span>{Math.max(0, Math.min(100, uploadProgress))}%</span>
+                    </div>
+                    <div className="h-2.5 rounded-full bg-gray-200 dark:bg-white/10 overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-[#5C27FE] via-[#0EA5E9] to-[#00C48C] transition-[width] duration-200 ease-out"
+                        style={{ width: `${Math.max(0, Math.min(100, uploadProgress))}%` }}
+                      />
+                    </div>
+                  </div>
+                  <p className="text-[10px] font-extrabold text-[#5C27FE] uppercase tracking-wider text-center">
                     Sending secure buffers to network...
                   </p>
                 </div>

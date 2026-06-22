@@ -14,8 +14,10 @@ import {
   X,
   Trash2,
   Edit2,
+  Reply,
 } from "lucide-react";
 import { apiFetch } from "../lib/api";
+import { useToast } from "./Toast";
 
 interface ChatViewProps {
   groups: Group[];
@@ -42,6 +44,7 @@ export default function ChatView({
   setSelectedTask,
   setIsDetailOpen,
 }: ChatViewProps) {
+  const { showToast } = useToast();
   /*
   ========================================
   LOCAL STATE
@@ -58,7 +61,10 @@ export default function ChatView({
   });
 
   // Get current user's role in the active group
-  const currentUserRole = groups.find((g) => g.id === activeGroupId)?.role || "member";
+  // Note: This should be fetched from group_members table, not from Group.role
+  // For now, we'll use a workaround: check if user is owner, otherwise default to member
+  let currentUserRole =
+    (groups.find((g) => g.id === activeGroupId)?.ownerId === currentUser?.id ? "owner" : "member") as "owner" | "admin" | "member";
 
   const [loadingMessages, setLoadingMessages] = useState(false);
 
@@ -91,6 +97,20 @@ export default function ChatView({
   const [connectionStatus, setConnectionStatus] = useState<
     "connected" | "disconnected" | "reconnecting"
   >("connected");
+
+  // Hover state for message actions
+  const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
+
+  // Long-press state for mobile/tablet
+  const longPressTimerRef = useRef<number | null>(null);
+  const [longPressedMessageId, setLongPressedMessageId] = useState<string | null>(null);
+
+  // Reply-to-message state
+  const [replyingTo, setReplyingTo] = useState<{
+    id: string;
+    senderName: string;
+    preview: string;
+  } | null>(null);
 
   /*
   ========================================
@@ -322,6 +342,7 @@ export default function ChatView({
     setNewMessageText("");
     setSelectedTaskRefId("");
     setIsSearchingTask(false);
+    setReplyingTo(null);
 
     if (isAiCommand) {
       // Handle AI chat assistant
@@ -393,6 +414,7 @@ export default function ChatView({
           channelId: activeChannelId,
           content: messageContent,
           taskRefId: taskReference,
+          replyToMessageId: replyingTo?.id,
           attachments: pendingAttachments.filter(
             (attachment) => attachment.uploadStatus === "uploaded"
           ),
@@ -408,6 +430,7 @@ export default function ChatView({
       if (response.ok) {
         const publishedMsg = await response.json();
         setPendingAttachments([]);
+        setReplyingTo(null);
 
         setChatMessages((prev) => {
           if (prev.some((msg) => msg.id === publishedMsg.id)) {
@@ -593,14 +616,14 @@ export default function ChatView({
       if (!response.ok) {
         const errorText = await response.text();
         console.error("Failed to delete message:", errorText);
-        alert(`Failed to delete message: ${errorText}`);
+        showToast("error", "Failed to delete message.");
         return;
       }
 
       setChatMessages((prev) => prev.filter((message) => message.id !== messageId));
     } catch (err) {
       console.error("Error deleting message:", err);
-      alert(`Error deleting message: ${err}`);
+      showToast("error", "Error deleting message.");
     }
   };
 
@@ -617,7 +640,7 @@ export default function ChatView({
       if (!response.ok) {
         const errorText = await response.text();
         console.error("Failed to edit message:", errorText);
-        alert(`Failed to edit message: ${errorText}`);
+        showToast("error", "Failed to edit message.");
         return;
       }
 
@@ -634,7 +657,7 @@ export default function ChatView({
       );
     } catch (err) {
       console.error("Error editing message:", err);
-      alert(`Error editing message: ${err}`);
+      showToast("error", "Error editing message.");
     }
   };
 
@@ -645,7 +668,9 @@ export default function ChatView({
   */
 
   const getFilteredMessages = () => {
-    return chatMessages.filter((m) => m.channelId === activeChannelId);
+    return chatMessages
+      .filter((m) => m.channelId === activeChannelId)
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
   };
 
   /*
@@ -916,7 +941,24 @@ export default function ChatView({
               }
 
               return (
-                <div key={msg.id} className="flex gap-2.5 items-start text-left group">
+                <div
+                  key={msg.id}
+                  data-message-id={msg.id}
+                  className="flex gap-2.5 items-start text-left group"
+                  onMouseEnter={() => setHoveredMessageId(msg.id)}
+                  onMouseLeave={() => setHoveredMessageId(null)}
+                  onTouchStart={() => {
+                    longPressTimerRef.current = window.setTimeout(() => {
+                      setLongPressedMessageId(msg.id);
+                    }, 500);
+                  }}
+                  onTouchEnd={() => {
+                    if (longPressTimerRef.current) {
+                      window.clearTimeout(longPressTimerRef.current);
+                      longPressTimerRef.current = null;
+                    }
+                  }}
+                >
                   <img
                     src={sender?.avatarUrl || "https://via.placeholder.com/100"}
                     alt={senderName}
@@ -932,42 +974,60 @@ export default function ChatView({
 
                       <span className="text-[9px] text-gray-400 font-mono">{timeStr}</span>
 
-                      {(msg.userId === currentUser?.id ||
-                        currentUserRole === "admin" ||
-                        currentUserRole === "owner") && (
-                        <div className="flex items-center gap-1 ml-2 opacity-0 group-hover:opacity-100 transition-all">
-                          {msg.userId === currentUser?.id ||
+                      <div
+                        className={`flex items-center gap-1 ml-2 transition-all ${
+                          hoveredMessageId === msg.id || longPressedMessageId === msg.id
+                            ? "opacity-100"
+                            : "opacity-0 group-hover:opacity-100"
+                        }`}
+                      >
+                        <button
+                          onClick={() => {
+                            setReplyingTo({
+                              id: msg.id,
+                              senderName: senderName,
+                              preview: msg.content.slice(0, 100),
+                            });
+                            setLongPressedMessageId(null);
+                            // Focus the chat input
+                            const chatInput = document.querySelector(
+                              'textarea[placeholder*="Type a message"]'
+                            ) as HTMLTextAreaElement;
+                            if (chatInput) chatInput.focus();
+                          }}
+                          className="p-1 rounded text-gray-400 hover:text-[#5C27FE] hover:bg-[#5C27FE]/10"
+                          title="Reply to message"
+                        >
+                          <Reply size={10} />
+                        </button>
+                        {msg.userId === currentUser?.id && (
+                          <button
+                            onClick={() => {
+                              setEditingMessageId(msg.id);
+                              setEditingMessageContent(msg.content);
+                              setLongPressedMessageId(null);
+                            }}
+                            className="p-1 rounded text-gray-400 hover:text-[#5C27FE] hover:bg-[#5C27FE]/10"
+                            title="Edit message"
+                          >
+                            <Edit2 size={10} />
+                          </button>
+                        )}
+                        {(msg.userId === currentUser?.id ||
                           currentUserRole === "admin" ||
-                          currentUserRole === "owner" ? (
-                            <>
-                              <button
-                                onClick={() => {
-                                  setEditingMessageId(msg.id);
-                                  setEditingMessageContent(msg.content);
-                                }}
-                                className="p-1 rounded text-gray-400 hover:text-[#5C27FE] hover:bg-[#5C27FE]/10"
-                                title="Edit message"
-                              >
-                                <Edit2 size={10} />
-                              </button>
-                              <button
-                                onClick={() => deleteMessage(msg.id)}
-                                className="p-1 rounded text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20"
-                                title="Delete message"
-                              >
-                                <Trash2 size={10} />
-                              </button>
-                            </>
-                          ) : (
-                            <div
-                              className="text-[9px] text-gray-400 italic"
-                              title="Only admins can edit/delete other users' messages"
-                            >
-                              Admin only
-                            </div>
-                          )}
-                        </div>
-                      )}
+                          currentUserRole === "owner") && (
+                          <button
+                            onClick={() => {
+                              deleteMessage(msg.id);
+                              setLongPressedMessageId(null);
+                            }}
+                            className="p-1 rounded text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20"
+                            title="Delete message"
+                          >
+                            <Trash2 size={10} />
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     <div className="p-2.5 rounded-2xl bg-gray-50/75 dark:bg-[#1C1C30]/55 border border-gray-150/50 dark:border-white/5 text-xs text-gray-800 dark:text-gray-250 leading-relaxed font-normal whitespace-pre-line">
@@ -1002,7 +1062,39 @@ export default function ChatView({
                           </div>
                         </div>
                       ) : (
-                        <p>{msg.content}</p>
+                        <>
+                          {msg.replyToMessageId && (
+                            <div
+                              className="mb-2 p-2 bg-gray-50 dark:bg-white/5 border-l-2 border-[#5C27FE] rounded-r-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
+                              onClick={() => {
+                                const originalMessage = chatMessages.find(
+                                  (m) => m.id === msg.replyToMessageId
+                                );
+                                if (originalMessage) {
+                                  const element = document.querySelector(
+                                    `[data-message-id="${originalMessage.id}"]`
+                                  );
+                                  if (element) {
+                                    element.scrollIntoView({ behavior: "smooth", block: "center" });
+                                    element.classList.add("ring-2", "ring-[#5C27FE]");
+                                    setTimeout(() => {
+                                      element.classList.remove("ring-2", "ring-[#5C27FE]");
+                                    }, 2000);
+                                  }
+                                }
+                              }}
+                            >
+                              <div className="text-[9px] text-[#5C27FE] dark:text-[#a085ff] font-semibold mb-0.5">
+                                Replying to message
+                              </div>
+                              <div className="text-[10px] text-gray-500 dark:text-gray-400 line-clamp-2">
+                                {chatMessages.find((m) => m.id === msg.replyToMessageId)?.content ||
+                                  "Original message not found"}
+                              </div>
+                            </div>
+                          )}
+                          <p>{msg.content}</p>
+                        </>
                       )}
 
                       {linkedTask && (
@@ -1095,6 +1187,28 @@ export default function ChatView({
         </div>
 
         <div className="p-3 bg-white/50 dark:bg-[#151525]/85 border-t border-gray-150 dark:border-white/5 space-y-2">
+          {/* REPLY PREVIEW BAR */}
+          {replyingTo && (
+            <div className="flex items-start gap-2 p-2 bg-[#5C27FE]/5 border-l-2 border-[#5C27FE] rounded-r-lg">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-[10px] font-bold text-[#5C27FE] dark:text-[#a085ff]">
+                    Replying to {replyingTo.senderName}
+                  </span>
+                </div>
+                <p className="text-[10px] text-gray-600 dark:text-gray-400 line-clamp-2">
+                  {replyingTo.preview}
+                </p>
+              </div>
+              <button
+                onClick={() => setReplyingTo(null)}
+                className="p-1 rounded text-gray-400 hover:text-gray-600 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10"
+              >
+                <X size={12} />
+              </button>
+            </div>
+          )}
+
           {/* TASK LINK BUTTON */}
 
           <div className="flex items-center gap-1.5">
@@ -1180,12 +1294,27 @@ export default function ChatView({
               {pendingAttachments.map((attachment) => (
                 <div
                   key={attachment.id}
-                  className="px-2 py-1 rounded-lg bg-gray-50 dark:bg-black/20 border border-gray-200 dark:border-white/10 text-[10px] font-bold text-gray-600 dark:text-gray-300"
+                  className="min-w-[170px] px-2.5 py-2 rounded-lg bg-gray-50 dark:bg-black/20 border border-gray-200 dark:border-white/10 text-[10px] font-bold text-gray-600 dark:text-gray-300 space-y-1"
                 >
-                  {attachment.fileName} ·{" "}
-                  {attachment.uploadStatus === "uploaded"
-                    ? "ready"
-                    : `${attachment.uploadProgress || 0}%`}
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate">{attachment.fileName}</span>
+                    <span className="shrink-0 tabular-nums">
+                      {attachment.uploadStatus === "uploaded"
+                        ? "ready"
+                        : `${attachment.uploadProgress || 0}%`}
+                    </span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-gray-200 dark:bg-white/10 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-[#5C27FE] via-[#0EA5E9] to-[#00C48C] transition-[width] duration-200 ease-out"
+                      style={{
+                        width: `${Math.min(
+                          100,
+                          Math.max(0, attachment.uploadProgress || 0)
+                        )}%`,
+                      }}
+                    />
+                  </div>
                 </div>
               ))}
             </div>
@@ -1205,6 +1334,28 @@ export default function ChatView({
           </div>
 
           {/* FORM */}
+
+          {/* Reply preview bar */}
+          {replyingTo && (
+            <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl mb-2">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold text-blue-700 dark:text-blue-300">
+                    Replying to {replyingTo.senderName}
+                  </span>
+                  <button
+                    onClick={() => setReplyingTo(null)}
+                    className="p-0.5 rounded text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-800"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+                <p className="text-[10px] text-blue-600 dark:text-blue-400 truncate">
+                  {replyingTo.preview}
+                </p>
+              </div>
+            </div>
+          )}
 
           <form onSubmit={handleSubmitMessage} className="flex gap-2">
             <input

@@ -1,10 +1,17 @@
 import { config } from "../config";
 import { logger } from "../logger";
-import { emailFrom, resend } from "./mailer";
+import { sendEmail } from "./mailer";
 
-function emailShell(title: string, body: string, ctaLabel: string, ctaUrl: string) {
+function emailShell(
+  title: string,
+  body: string,
+  ctaLabel: string,
+  ctaUrl: string,
+  notice?: string
+) {
   return `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 560px; margin: 0 auto; color: #1e293b;">
+      ${notice ? `<p style="font-size:12px;color:#64748b;margin:0 0 18px 0;line-height:1.5;">${notice}</p>` : ""}
       <h1 style="font-size: 22px; margin-bottom: 8px;">${title}</h1>
       <p style="font-size: 15px; line-height: 1.6; color: #475569;">${body}</p>
       <p style="margin: 28px 0;">
@@ -20,90 +27,65 @@ function emailShell(title: string, body: string, ctaLabel: string, ctaUrl: strin
 export async function sendVerificationEmail(
   to: string,
   token: string,
-  name: string,
+  name: string
 ): Promise<void> {
   const verifyUrl = `${config.appUrl}/verify-email?token=${token}`;
 
-  if (!resend) {
-    logger.warn(
-      "Resend is not configured; email verification link generated but not emailed.",
-      { email: to, verifyUrl },
-    );
-    return;
-  }
-
   try {
-    await resend.emails.send({
-      from: emailFrom,
+    await sendEmail({
       to,
       subject: "Verify your NewDay email",
       html: emailShell(
         `Welcome, ${name}`,
         "Thanks for signing up for NewDay. Please verify your email address within 24 hours to activate your workspace account.",
         "Verify email",
-        verifyUrl,
+        verifyUrl
       ),
     });
   } catch (error) {
-    // Log but do not throw — auth flow should not fail because email delivery failed.
-    logger.error("Failed to send verification email via Resend", { error, email: to });
+    logger.error("Failed to send verification email via Nodemailer", { error, email: to });
   }
 }
 
 export async function sendPasswordResetEmail(
   to: string,
   token: string,
-  name: string,
+  name: string
 ): Promise<void> {
   const resetUrl = `${config.appUrl}/reset-password?token=${token}`;
 
-  if (!resend) {
-    logger.warn(
-      "Resend is not configured; password reset link generated but not emailed.",
-      { email: to, resetUrl },
-    );
-    return;
-  }
-
   try {
-    await resend.emails.send({
-      from: emailFrom,
+    await sendEmail({
       to,
       subject: "Reset your NewDay password",
       html: emailShell(
         `Hi ${name}`,
         "We received a request to reset your NewDay password. This link expires in 30 minutes. If you did not request a reset, you can safely ignore this email.",
         "Reset password",
-        resetUrl,
+        resetUrl
       ),
     });
   } catch (error) {
-    logger.error("Failed to send password reset email via Resend", { error, email: to });
+    logger.error("Failed to send password reset email via Nodemailer", { error, email: to });
   }
 }
 
 export async function sendWelcomeEmail(to: string, name: string): Promise<void> {
   const dashboardUrl = config.appUrl;
 
-  if (!resend) {
-    logger.warn("Resend is not configured; welcome email skipped.", { email: to });
-    return;
-  }
-
   try {
-    await resend.emails.send({
-      from: emailFrom,
+    await sendEmail({
       to,
       subject: "Welcome to NewDay",
       html: emailShell(
         `You're all set, ${name}`,
         "Your email is verified and your NewDay workspace is ready. Start organizing tasks, collaborating with your team, and building your focus workflow.",
         "Open NewDay",
-        dashboardUrl,
+        dashboardUrl
       ),
     });
   } catch (error) {
-    logger.error("Failed to send welcome email via Resend", { error, email: to });
+    logger.error("Failed to send welcome email via Nodemailer", { error, email: to });
   }
 }
 
@@ -111,19 +93,10 @@ export async function sendWorkspaceInviteEmail(
   to: string,
   inviterName: string,
   groupName: string,
-  inviteUrl: string,
+  inviteUrl: string
 ): Promise<void> {
-  if (!resend) {
-    logger.warn(
-      "Resend is not configured; workspace invite link generated but not emailed.",
-      { email: to, inviteUrl },
-    );
-    return;
-  }
-
   try {
-    await resend.emails.send({
-      from: emailFrom,
+    await sendEmail({
       to,
       subject: `${inviterName} invited you to ${groupName} on NewDay`,
       html: emailShell(
@@ -131,12 +104,14 @@ export async function sendWorkspaceInviteEmail(
         `${inviterName} invited you to collaborate in ${groupName} on NewDay. This invite expires in 7 days.`,
         "Accept invite",
         inviteUrl,
+        'This email may have landed in your spam folder. Please mark it as "Not Spam" so future messages from NewDay reach you directly.'
       ),
     });
   } catch (error) {
-    logger.error("Failed to send workspace invite email via Resend", {
+    logger.error("Failed to send workspace invite email via Nodemailer", {
       error,
       email: to,
     });
+    throw error;
   }
 }

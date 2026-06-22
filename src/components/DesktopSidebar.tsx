@@ -2,6 +2,7 @@ import React, { useRef, type ChangeEvent, type Dispatch, type SetStateAction } f
 import { Task, Group, User } from "../types";
 import type { Metrics } from "../utils/taskFilters";
 import { apiFetch } from "../lib/api";
+import { useToast } from "./Toast";
 import {
   Plus,
   Calendar as CalendarIcon,
@@ -15,6 +16,10 @@ import {
   Moon,
   LogOut,
   Settings,
+  Mail,
+  Copy,
+  Link,
+  RefreshCw,
 } from "lucide-react";
 
 type DesktopSidebarProps = {
@@ -31,6 +36,7 @@ type DesktopSidebarProps = {
   currentUser: User | null;
   setCurrentUser: Dispatch<SetStateAction<User | null>>;
   tasks: Task[];
+  activeGroupId?: string;
   handleLogout: () => Promise<void>;
 };
 
@@ -48,14 +54,22 @@ export default function DesktopSidebar({
   currentUser,
   setCurrentUser,
   tasks,
+  activeGroupId,
   handleLogout,
 }: DesktopSidebarProps) {
+  const { showToast } = useToast();
   if (!currentUser) {
     return null;
   }
 
   const fileRef = React.useRef<HTMLInputElement | null>(null);
   const [avatarError, setAvatarError] = React.useState("");
+  const [inviteEmail, setInviteEmail] = React.useState("");
+  const [inviteLink, setInviteLink] = React.useState("");
+  const [inviteLoading, setInviteLoading] = React.useState(false);
+  const [invitePanelGroupId, setInvitePanelGroupId] = React.useState<string | null>(null);
+  const activeGroup = groups.find((group) => group.id === invitePanelGroupId);
+  const canManageActiveGroup = activeGroup?.role === "owner" || activeGroup?.role === "admin";
 
   const handleAvatarClick = () => {
     fileRef.current?.click();
@@ -91,6 +105,74 @@ export default function DesktopSidebar({
       }
     };
     reader.readAsDataURL(file);
+  };
+
+  const sendInvite = async () => {
+    if (!activeGroup || !inviteEmail.trim() || inviteLoading) return;
+    setInviteLoading(true);
+    try {
+      const response = await apiFetch(`/api/groups/${activeGroup.id}/invitations`, {
+        method: "POST",
+        body: JSON.stringify({ email: inviteEmail.trim(), role: "member" }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        showToast("error", data?.error || "Failed to send invite.");
+        return;
+      }
+      const data = await response.json();
+      setInviteLink(data.inviteUrl || "");
+      setInviteEmail("");
+      showToast(
+        "success",
+        `Invite sent! Ask ${inviteEmail.trim()} to check their spam or junk folder if they do not see it within a few minutes.`
+      );
+    } catch (error) {
+      console.error("Failed to send group invite:", error);
+      showToast("error", "Failed to send invite. Please try again.");
+    } finally {
+      setInviteLoading(false);
+    }
+  };
+
+  const generateInviteLink = async () => {
+    if (!activeGroup || inviteLoading) return;
+    setInviteLoading(true);
+    try {
+      const response = await apiFetch(`/api/groups/${activeGroup.id}/invite-link`, {
+        method: "POST",
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        showToast("error", data?.error || "Failed to generate invite link.");
+        return;
+      }
+      const data = await response.json();
+      setInviteLink(data.inviteUrl || "");
+      showToast("success", "Invite link generated.");
+    } catch (error) {
+      console.error("Failed to generate invite link:", error);
+      showToast("error", "Failed to generate invite link.");
+    } finally {
+      setInviteLoading(false);
+    }
+  };
+
+  const copyInviteLink = async () => {
+    if (!inviteLink) return;
+    try {
+      await navigator.clipboard.writeText(inviteLink);
+      showToast("success", "Invite link copied.");
+    } catch (error) {
+      console.error("Failed to copy invite link:", error);
+      showToast("error", "Failed to copy invite link.");
+    }
+  };
+
+  const openInvitePanel = (groupId: string) => {
+    setInvitePanelGroupId(groupId);
+    setInviteLink("");
+    setInviteEmail("");
   };
   return (
     <aside className="hidden md:flex w-[260px] flex-shrink-0 h-screen sticky top-0 flex-col overflow-hidden p-5 z-20 sidebar-glass">
@@ -269,29 +351,93 @@ export default function DesktopSidebar({
             </div>
 
             <div className="space-y-1">
-              {groups.map((g) => (
-                <button
-                  key={g.id}
-                  onClick={() => setActiveCategory(g.id)}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-left text-xs font-semibold cursor-pointer transition-all duration-200 ${
-                    activeCategory === g.id
-                      ? "bg-white/80 dark:bg-white/10 shadow-xs border border-white/40 dark:border-white/10 text-[#5C27FE] dark:text-[#a085ff]"
-                      : "text-gray-600 dark:text-gray-400 hover:bg-gray-200/40 dark:hover:bg-white/5"
-                  }`}
-                >
-                  <span className="flex items-center gap-2 truncate pr-1">
-                    <span
-                      className="w-2.5 h-2.5 rounded-full border border-white/50 flex-shrink-0"
-                      style={{ backgroundColor: g.color }}
-                    />
-                    <span className="truncate">{g.name}</span>
-                  </span>
-                  <span className="text-[9px] text-gray-400 font-mono font-bold">
-                    {tasks.filter((t) => t.groupId === g.id && t.status !== "completed").length}
-                  </span>
-                </button>
-              ))}
+              {groups.map((g) => {
+                const canManageGroup = g.role === "owner" || g.role === "admin";
+                return (
+                  <div key={g.id} className="space-y-1">
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => setActiveCategory(g.id)}
+                        className={`min-w-0 flex-1 flex items-center justify-between px-3 py-2.5 rounded-xl text-left text-xs font-semibold cursor-pointer transition-all duration-200 ${
+                          activeCategory === g.id
+                            ? "bg-white/80 dark:bg-white/10 shadow-xs border border-white/40 dark:border-white/10 text-[#5C27FE] dark:text-[#a085ff]"
+                            : "text-gray-600 dark:text-gray-400 hover:bg-gray-200/40 dark:hover:bg-white/5"
+                        }`}
+                      >
+                        <span className="flex items-center gap-2 truncate pr-1">
+                          <span
+                            className="w-2.5 h-2.5 rounded-full border border-white/50 flex-shrink-0"
+                            style={{ backgroundColor: g.color }}
+                          />
+                          <span className="truncate">{g.name}</span>
+                        </span>
+                        <span className="text-[9px] text-gray-400 font-mono font-bold">
+                          {tasks.filter((t) => t.groupId === g.id && t.status !== "completed").length}
+                        </span>
+                      </button>
+                      {canManageGroup && (
+                        <button
+                          type="button"
+                          onClick={() => openInvitePanel(g.id)}
+                          className="inline-flex items-center gap-1 rounded-lg px-2.5 py-2 text-[10px] font-bold text-gray-500 hover:text-[#5C27FE] dark:hover:text-[#a085ff] hover:bg-gray-100 dark:hover:bg-white/5"
+                          title="Invite members"
+                        >
+                          <Mail size={14} />
+                          <span>Invite</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
+
+            {activeGroup && canManageActiveGroup && (
+              <div className="mt-4 rounded-xl border border-[#5C27FE]/15 bg-[#5C27FE]/5 p-3 space-y-3">
+                <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-[#5C27FE] dark:text-[#a085ff]">
+                  <Mail size={12} />
+                  Invite Members
+                </div>
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <input
+                      type="email"
+                      value={inviteEmail}
+                      onChange={(e) => setInviteEmail(e.target.value)}
+                      placeholder="user@example.com"
+                      className="min-w-0 flex-1 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-black/20 px-3 py-2 text-[10px] font-semibold"
+                    />
+                    <button
+                      type="button"
+                      onClick={sendInvite}
+                      disabled={inviteLoading || !inviteEmail.trim()}
+                      className="inline-flex items-center gap-1 rounded-lg bg-[#5C27FE] px-3 py-2 text-[10px] font-bold text-white disabled:opacity-50"
+                    >
+                      {inviteLoading ? <RefreshCw size={12} className="animate-spin" /> : <Mail size={12} />}
+                      Send
+                    </button>
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={inviteLink}
+                      readOnly
+                      placeholder="Generate an invite link"
+                      className="min-w-0 flex-1 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-black/20 px-3 py-2 text-[10px] font-semibold"
+                    />
+                    <button
+                      type="button"
+                      onClick={inviteLink ? copyInviteLink : generateInviteLink}
+                      disabled={inviteLoading}
+                      className="inline-flex items-center gap-1 rounded-lg border border-gray-200 dark:border-white/10 px-3 py-2 text-[10px] font-bold disabled:opacity-50"
+                    >
+                      {inviteLink ? <Copy size={12} /> : <Link size={12} />}
+                      {inviteLink ? "Copy" : "Link"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

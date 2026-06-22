@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import type { ChatChannel, Group, User } from "../types";
 import { apiFetch } from "../lib/api";
+import { useToast } from "./Toast";
 
 type SettingsViewProps = {
   currentUser: User;
@@ -55,6 +56,7 @@ export default function SettingsView({
   syncWithServer,
   handleLogout,
 }: SettingsViewProps) {
+  const { showConfirm, showToast } = useToast();
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const statusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -89,10 +91,18 @@ export default function SettingsView({
     () => groups.find((group) => group.id === selectedGroupId),
     [groups, selectedGroupId]
   );
-  const canManageGroup = useMemo(
-    () => selectedGroup?.role === "owner" || selectedGroup?.role === "admin",
-    [selectedGroup?.role]
-  );
+  const canManageGroup = useMemo(() => {
+    const canManage = selectedGroup?.role === "owner" || selectedGroup?.role === "admin";
+    console.log(
+      "[SettingsView] canManageGroup:",
+      canManage,
+      "selectedGroup.role:",
+      selectedGroup?.role,
+      "selectedGroup:",
+      selectedGroup
+    );
+    return canManage;
+  }, [selectedGroup?.role, selectedGroup]);
   const groupChannels = channels.filter((channel) => channel.groupId === selectedGroup?.id);
 
   useEffect(() => {
@@ -176,16 +186,20 @@ export default function SettingsView({
         } catch {
           // non-json body
         }
-        setTimedStatus(errorBody?.error || `Profile update failed. (${res.status})`);
+        const message = errorBody?.error || `Profile update failed. (${res.status})`;
+        setTimedStatus(message);
+        showToast("error", message);
         return;
       }
       const updated = await res.json();
       setCurrentUser(updated);
       localStorage.setItem("newday_current_user", JSON.stringify(updated));
       setTimedStatus("Profile saved.");
+      showToast("success", "Profile saved.");
     } catch (err) {
       console.error("Profile save error:", err);
       setTimedStatus("Failed to save changes. Check your connection and try again.");
+      showToast("error", "Failed to save changes. Check your connection and try again.");
     } finally {
       setIsProfileSaving(false);
     }
@@ -212,15 +226,19 @@ export default function SettingsView({
       });
       if (!res.ok) {
         const errorBody = await res.json().catch(() => null);
-        setTimedStatus(errorBody?.error || "Group update failed.");
+        const message = errorBody?.error || "Group update failed.";
+        setTimedStatus(message);
+        showToast("error", message);
         return;
       }
       const updated = await res.json();
       setGroups((prev) => prev.map((g) => (g.id === updated.id ? updated : g)));
       setTimedStatus("Group saved.");
+      showToast("success", "Group saved.");
     } catch (err) {
       console.error("Group save error:", err);
       setTimedStatus("Failed to save group. Check your connection and try again.");
+      showToast("error", "Failed to save group. Check your connection and try again.");
     } finally {
       setIsGroupSaving(false);
     }
@@ -241,16 +259,25 @@ export default function SettingsView({
       });
       if (!res.ok) {
         const errorBody = await res.json().catch(() => null);
-        setTimedStatus(errorBody?.error || "Invite could not be generated.");
+        const message = errorBody?.error || "Invite could not be generated.";
+        setTimedStatus(message);
+        showToast("error", message);
         return;
       }
       const data = await res.json();
       setInviteResult(data.inviteUrl);
       setInviteEmail("");
       setTimedStatus(inviteEmail ? "Invitation sent." : "Invite link created.");
+      showToast(
+        "success",
+        inviteEmail
+          ? `Invite sent! Ask ${inviteEmail} to check their spam or junk folder if they do not see it within a few minutes.`
+          : "Invite link created."
+      );
     } catch (err) {
       console.error("Create invite error:", err);
       setTimedStatus("Failed to send invite. Check your connection.");
+      showToast("error", "Failed to send invite. Please try again.");
     }
   };
 
@@ -259,9 +286,11 @@ export default function SettingsView({
     try {
       await navigator.clipboard?.writeText(inviteLink);
       setTimedStatus("Invite link copied.");
+      showToast("success", "Invite link copied.");
     } catch (err) {
       console.error("Clipboard error:", err);
       setTimedStatus("Failed to copy link.");
+      showToast("error", "Failed to copy invite link.");
     }
   };
 
@@ -278,7 +307,9 @@ export default function SettingsView({
       const res = await apiFetch(endpoint, { method: "POST" });
       if (!res.ok) {
         const errorBody = await res.json().catch(() => null);
-        setTimedStatus(errorBody?.error || "Could not generate invite link.");
+        const message = errorBody?.error || "Could not generate invite link.";
+        setTimedStatus(message);
+        showToast("error", message);
         return;
       }
       const data = await res.json();
@@ -286,9 +317,11 @@ export default function SettingsView({
       setInviteLinkExpiresAt(data.expiresAt || "");
       setInviteResult("");
       setTimedStatus(isCreating ? "Invite link generated." : "Invite link regenerated.");
+      showToast("success", isCreating ? "Invite link generated." : "Invite link regenerated.");
     } catch (err) {
       console.error("Invite link error:", err);
       setTimedStatus("Failed to generate link. Check your connection.");
+      showToast("error", "Failed to generate invite link.");
     } finally {
       setIsLinkLoading(false);
     }
@@ -320,15 +353,19 @@ export default function SettingsView({
       });
       if (!res.ok) {
         const errorBody = await res.json().catch(() => null);
-        setTimedStatus(errorBody?.error || "Invite link is invalid or expired.");
+        const message = errorBody?.error || "Invite link is invalid or expired.";
+        setTimedStatus(message);
+        showToast("error", message);
         return;
       }
       setTimedStatus("Joined group. Syncing workspace...");
+      showToast("success", "Joined group successfully.");
       setJoinToken("");
       await syncWithServer();
     } catch (err) {
       console.error("Group join failed:", err);
       setTimedStatus("Invite link is invalid or expired.");
+      showToast("error", "Failed to join the group. Please try again.");
     } finally {
       setIsJoining(false);
     }
@@ -346,13 +383,17 @@ export default function SettingsView({
       if (res.ok) {
         setMembers((prev) => prev.map((m) => (m.id === memberId ? { ...m, role } : m)));
         setTimedStatus("Member role updated.");
+        showToast("success", "Member role updated.");
       } else {
         const errorBody = await res.json().catch(() => null);
-        setTimedStatus(errorBody?.error || "Member role could not be updated.");
+        const message = errorBody?.error || "Member role could not be updated.";
+        setTimedStatus(message);
+        showToast("error", message);
       }
     } catch (err) {
       console.error("Member role update error:", err);
       setTimedStatus("Failed to update role. Check your connection and try again.");
+      showToast("error", "Failed to update role. Please try again.");
     } finally {
       setIsMemberUpdating(false);
     }
@@ -360,7 +401,8 @@ export default function SettingsView({
 
   const removeMember = async (memberId: string, memberName: string) => {
     if (!selectedGroup || isMemberUpdating) return;
-    if (!window.confirm(`Are you sure you want to remove ${memberName} from this group?`)) return;
+    const confirmed = await showConfirm(`Remove ${memberName} from this group?`);
+    if (!confirmed) return;
     setIsMemberUpdating(true);
     setTimedStatus("Removing member...");
     try {
@@ -370,13 +412,17 @@ export default function SettingsView({
       if (res.ok) {
         setMembers((prev) => prev.filter((m) => m.id !== memberId));
         setTimedStatus("Member removed.");
+        showToast("success", "Member removed.");
       } else {
         const errorBody = await res.json().catch(() => null);
-        setTimedStatus(errorBody?.error || "Member could not be removed.");
+        const message = errorBody?.error || "Member could not be removed.";
+        setTimedStatus(message);
+        showToast("error", message);
       }
     } catch (err) {
       console.error("Member removal error:", err);
       setTimedStatus("Failed to remove member. Check your connection and try again.");
+      showToast("error", "Failed to remove member. Please try again.");
     } finally {
       setIsMemberUpdating(false);
     }

@@ -32,6 +32,7 @@ import {
   Twitter,
   Linkedin,
   Shield,
+  MoreHorizontal,
 } from "lucide-react";
 import LogoLoader from "./animations/LogoLoader";
 import BorderGlow from "./BorderGlow";
@@ -43,7 +44,7 @@ import useDarkMode from "../hooks/useDarkMode";
 import ChromaGrid from "./ChromaGrid";
 import { User } from "../types";
 const logoImage = new URL("../images/logo.png", import.meta.url).href;
-import { apiFetch } from "../lib/api";
+import { apiFetch, readJsonResponse } from "../lib/api";
 import PasswordStrengthIndicator, { isPasswordStrong } from "./PasswordStrengthIndicator";
 
 interface LandingPageProps {
@@ -103,6 +104,30 @@ export default function LandingPage({
       text: "Yes, just synced to Firebase server rules!",
     },
   ]);
+
+  // Interactive Sandbox Tasks State
+  const [sandboxTasks, setSandboxTasks] = useState([
+    {
+      id: 1,
+      title: "Implement Interactive Sandbox Controls",
+      description:
+        "Redesign the sandbox landing page component to showcase a realistic preview of the actual task management Kanban and List views.",
+      priority: "high" as "high" | "medium" | "low",
+      tag: "#frontend",
+      comments: 3,
+      completed: false,
+    },
+    {
+      id: 2,
+      title: "Review marketing launch copy",
+      description: "Review and approve the marketing copy for the upcoming product launch.",
+      priority: "low" as "high" | "medium" | "low",
+      tag: "#marketing",
+      comments: 0,
+      completed: false,
+    },
+  ]);
+  const [newTaskTitle, setNewTaskTitle] = useState("");
 
   const [founderTab, setFounderTab] = useState<"vision" | "journey" | "manifest">("vision");
   const founderImage = new URL("../images/IMG_3063 (1).jpg", import.meta.url).href;
@@ -167,11 +192,11 @@ export default function LandingPage({
         body: JSON.stringify({ token }),
       })
         .then(async (res) => {
-          const data = await res.json();
+          const data = await readJsonResponse<any>(res);
           if (!res.ok) {
-            throw new Error(data.error || "Verification failed.");
+            throw new Error(data?.error || "Verification failed.");
           }
-          onAuthSuccess(data.user || data);
+          onAuthSuccess(data?.user || data);
         })
         .catch((err: Error) => setError(err.message))
         .finally(() => setLoading(false));
@@ -227,6 +252,32 @@ export default function LandingPage({
     setTypedMessage("");
   };
 
+  // Interactive Sandbox Task Handlers
+  const addSandboxTask = () => {
+    if (!newTaskTitle.trim()) return;
+    const newTask = {
+      id: Date.now(),
+      title: newTaskTitle,
+      description: "New task added from interactive sandbox",
+      priority: demoSelectedPriority,
+      tag: "#general",
+      comments: 0,
+      completed: false,
+    };
+    setSandboxTasks((prev) => [...prev, newTask]);
+    setNewTaskTitle("");
+  };
+
+  const toggleSandboxTaskComplete = (taskId: number) => {
+    setSandboxTasks((prev) =>
+      prev.map((task) => (task.id === taskId ? { ...task, completed: !task.completed } : task))
+    );
+  };
+
+  const deleteSandboxTask = (taskId: number) => {
+    setSandboxTasks((prev) => prev.filter((task) => task.id !== taskId));
+  };
+
   const formatLockoutMessage = (seconds: number) => {
     const minutes = Math.max(1, Math.ceil(seconds / 60));
     return `Account locked — try again in ${minutes} minute${minutes === 1 ? "" : "s"}`;
@@ -259,9 +310,9 @@ export default function LandingPage({
           method: "POST",
           body: JSON.stringify({ token: resetConfirmToken, password }),
         });
-        const data = await response.json();
+        const data = await readJsonResponse<any>(response);
         if (!response.ok) {
-          throw new Error(data.errors?.join(" ") || data.error || "Failed to reset password.");
+          throw new Error(data?.errors?.join(" ") || data?.error || "Failed to reset password.");
         }
         setResetSuccess("Password updated. You can now sign in.");
         setAuthMode("login");
@@ -285,11 +336,11 @@ export default function LandingPage({
             );
           }
         }
-        const data = await response.json();
+        const data = await readJsonResponse<any>(response);
         if (!response.ok) {
-          throw new Error(data.error || "Failed to reset password.");
+          throw new Error(data?.error || "Failed to reset password.");
         }
-        setResetSuccess(data.message || "If that email exists, a reset link will be sent.");
+        setResetSuccess(data?.message || "If that email exists, a reset link will be sent.");
         setAuthMode("login");
         setPassword("");
       } else if (authMode === "signup") {
@@ -313,17 +364,17 @@ export default function LandingPage({
             );
           }
         }
-        const data = await response.json();
+        const data = await readJsonResponse<any>(response);
         if (!response.ok) {
           throw new Error(
-            data.errors?.join(" ") || data.error || "Failed to establish workspace account."
+            data?.errors?.join(" ") || data?.error || "Failed to establish workspace account."
           );
         }
-        if (data.requiresVerification) {
-          setResetSuccess(data.message || "Check your email to verify your account.");
+        if (data?.requiresVerification) {
+          setResetSuccess(data?.message || "Check your email to verify your account.");
           setAuthMode("login");
         } else {
-          onAuthSuccess(data.user || data);
+          onAuthSuccess(data?.user || data);
         }
       } else {
         // Login flow
@@ -353,21 +404,21 @@ export default function LandingPage({
           );
         }
 
-        const data = await response.json();
+        const data = await readJsonResponse<any>(response);
         if (!response.ok) {
-          if (response.status === 429 && data.retryAfterSeconds) {
+          if (response.status === 429 && data?.retryAfterSeconds) {
             setLockoutSeconds(data.retryAfterSeconds);
             setError(formatLockoutMessage(data.retryAfterSeconds));
             return;
           }
-          if (response.status === 403 && data.code === "ACCOUNT_PERMANENTLY_LOCKED") {
+          if (response.status === 403 && data?.code === "ACCOUNT_PERMANENTLY_LOCKED") {
             setIsPermanentLock(true);
-            setError(data.error || "Account permanently locked — contact support");
+            setError(data?.error || "Account permanently locked — contact support");
             return;
           }
-          throw new Error(data.error || "Invalid email or password");
+          throw new Error(data?.error || "Invalid email or password");
         }
-        onAuthSuccess(data.user || data);
+        onAuthSuccess(data?.user || data);
       }
     } catch (err: any) {
       if (err?.message?.includes("Failed to fetch")) {
@@ -566,9 +617,9 @@ export default function LandingPage({
           coneSpread={34}
           animated={true}
         >
-          <div className="rounded-3xl border border-gray-250/50 dark:border-white/10 bg-white/60 dark:bg-slate-900/40 backdrop-blur-3xl shadow-2xl overflow-hidden grid grid-cols-1 md:grid-cols-12">
+          <div className="rounded-3xl border border-gray-250/50 dark:border-white/10 bg-white/60 dark:bg-slate-900/40 backdrop-blur-3xl shadow-[0_20px_60px_-15px_rgba(92,39,254,0.2)] dark:shadow-[0_20px_60px_-15px_rgba(92,39,254,0.1)] overflow-hidden grid grid-cols-1 md:grid-cols-12 relative">
             {/* Simulator Sidebar (4 cols) */}
-            <div className="md:col-span-4 p-4.5 md:p-5 lg:p-8 border-b md:border-b-0 md:border-r border-gray-200/60 dark:border-white/5 bg-gray-50/50 dark:bg-black/10 flex flex-col justify-between">
+            <div className="md:col-span-4 p-4.5 md:p-5 lg:p-8 border-b md:border-b-0 md:border-r border-gray-200/60 dark:border-white/5 bg-gray-50/50 dark:bg-black/10 flex flex-col justify-between relative z-20 shadow-[15px_0_30px_-15px_rgba(0,0,0,0.05)] dark:shadow-[15px_0_30px_-15px_rgba(0,0,0,0.3)]">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] uppercase font-bold tracking-wider text-gray-400">
@@ -684,8 +735,8 @@ export default function LandingPage({
             <div className="md:col-span-8 p-4.5 md:p-6 lg:p-10 flex flex-col justify-between bg-white dark:bg-slate-950/30">
               <div>
                 {/* Header inside device */}
-                <div className="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-white/5 mb-6">
-                  <div className="flex items-center gap-2">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pb-4 border-b border-gray-100 dark:border-white/5 mb-6 text-center sm:text-left">
+                  <div className="flex items-center justify-center sm:justify-start gap-2">
                     <div className="w-2.5 h-2.5 rounded-full bg-[#FF4D4D]" />
                     <div className="w-2.5 h-2.5 rounded-full bg-[#FFB020]" />
                     <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
@@ -695,7 +746,7 @@ export default function LandingPage({
                   </div>
 
                   {/* Device mock dynamic peers */}
-                  <div className="flex items-center -space-x-1.5">
+                  <div className="flex items-center justify-center sm:justify-end -space-x-1.5">
                     {Array.from({ length: mockCollaboratorCount }).map((_, i) => {
                       const colors = [
                         "bg-[#5C27FE]",
@@ -721,166 +772,110 @@ export default function LandingPage({
                   </div>
                 </div>
 
-                {/* LIVING NOTECARD SIMULATION COMPONENT */}
-                <div className="max-w-md mx-auto space-y-4">
-                  {/* Active simulating mockup notecard */}
-                  <div
-                    className={`p-5 rounded-2xl border transition-all duration-300 relative ${
-                      demoSelectedPriority === "high"
-                        ? "border-[#FF4D4D]/25 bg-[#FF4D4D]/[0.02] shadow-md shadow-[#FF4D4D]/5"
-                        : demoSelectedPriority === "medium"
-                          ? "border-[#FFB020]/25 bg-[#FFB020]/[0.02] shadow-md shadow-[#FFB020]/5"
-                          : "border-emerald-500/25 bg-emerald-500/[0.02] shadow-md shadow-emerald-500/5"
-                    }`}
-                  >
-                    {/* tag + indicators */}
-                    <div className="flex items-center justify-between mb-3.5">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[9px] font-bold font-mono uppercase bg-[#5C27FE]/15 text-[#5C27FE] dark:text-[#a085ff] px-2 py-0.5 rounded-md">
-                          #marketing-launch
-                        </span>
-                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-500/40 animate-pulse" />
-                      </div>
-
-                      <span
-                        className={`text-[9px] font-bold px-2 py-0.5 rounded-md ${
-                          demoSelectedPriority === "high"
-                            ? "bg-[#FF4D4D]/10 text-[#FF4D4D]"
-                            : demoSelectedPriority === "medium"
-                              ? "bg-[#FFB020]/10 text-[#FFB020]"
-                              : "bg-emerald-500/10 text-emerald-500"
-                        }`}
-                      >
-                        {demoSelectedPriority.toUpperCase()} PRIORITY
-                      </span>
-                    </div>
-
-                    {/* title inside card */}
-                    <h3 className="font-extrabold text-sm text-gray-900 dark:text-white mb-2 leading-tight flex items-center gap-2">
-                      <span>Construct interactive desktop sandbox mockup</span>
-                      <span className="text-[10px] font-mono text-gray-400 font-normal hover:underline cursor-pointer">
-                        ⌘+E
-                      </span>
+                {/* REALISTIC TASK MANAGEMENT REPLICA */}
+                <div className="max-w-md mx-auto w-full">
+                  <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-center sm:text-left">
+                    <h3 className="text-sm font-bold text-gray-800 dark:text-gray-200 flex items-center justify-center sm:justify-start gap-2 min-w-0">
+                      <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                      In Progress ({sandboxTasks.length})
                     </h3>
-
-                    <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-relaxed mb-4">
-                      Coordinate dynamic microtask checkboxes. Check off the steps below to watch
-                      the custom live progress metrics update in synchronized speed.
-                    </p>
-
-                    {/* interactive checkboxes */}
-                    <AnimatedList className="space-y-2" delay={1500}>
-                      {demoCompletedSteps.map((completed, index) => {
-                        const labels = [
-                          "Construct responsive glass structures",
-                          "Mount Firestore server-side security logic",
-                          "Add keyboard triggers reference drawer",
-                        ];
-                        return (
-                          <div
-                            key={index}
-                            onClick={() => {
-                              const copy = [...demoCompletedSteps];
-                              copy[index] = !copy[index];
-                              setDemoCompletedSteps(copy);
-                            }}
-                            className={`flex items-start gap-2.5 p-2 rounded-xl border border-transparent hover:bg-gray-100/60 dark:hover:bg-white/5 cursor-pointer transition-all ${
-                              completed ? "opacity-70" : ""
-                            }`}
-                          >
-                            <div
-                              className={`mt-0.5 w-4 h-4 rounded-md border flex items-center justify-center transition-all ${
-                                completed
-                                  ? "bg-[#5C27FE] border-[#5C27FE] text-white"
-                                  : "border-gray-300 dark:border-white/20 bg-transparent"
-                              }`}
-                            >
-                              {completed && <Check size={11} />}
-                            </div>
-                            <span
-                              className={`text-xs font-medium text-gray-700 dark:text-gray-300 leading-none select-none ${
-                                completed ? "line-through text-gray-400" : ""
-                              }`}
-                            >
-                              {labels[index]}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </AnimatedList>
-
-                    {/* Progress bar metrics indicator */}
-                    <div className="mt-4 pt-4 border-t border-gray-100 dark:border-white/5 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-extrabold text-gray-400">
-                          PROGRESS METRICS:
-                        </span>
-                        <span className="text-xs font-mono font-bold text-[#5C27FE] dark:text-[#a085ff]">
-                          {percentComplete}%
-                        </span>
-                      </div>
-
-                      <div className="w-24 h-1.5 bg-gray-150 dark:bg-white/5 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-gradient-to-r from-[#5C27FE] to-[#0EA5E9] transition-all duration-300"
-                          style={{ width: `${percentComplete}%` }}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Simulated Dynamic Halo cursor pointing at box */}
-                    <div className="absolute top-[80%] right-[30%] pointer-events-none animate-bounce">
-                      <div className="flex items-center gap-1.5 bg-[#FF4D4D] text-white font-mono text-[9px] font-bold px-1.5 py-0.5 rounded shadow-lg ring-1 ring-white/20">
-                        <span className="w-1 h-1 rounded-full bg-white animate-pulse" />
-                        <span>Sarah editing...</span>
-                      </div>
+                    <div className="flex justify-center sm:justify-end gap-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const taskInput = prompt("Enter task title:");
+                          if (taskInput) {
+                            setNewTaskTitle(taskInput);
+                            addSandboxTask();
+                          }
+                        }}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200/70 dark:border-white/5 bg-white/90 dark:bg-black/40 text-gray-400 hover:text-gray-700 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
+                        aria-label="Add item"
+                      >
+                        <Plus size={14} />
+                      </button>
                     </div>
                   </div>
 
-                  {/* Simulated Peer Active Live Chat widget */}
-                  <div className="p-4 rounded-xl border border-gray-200/50 dark:border-white/5 bg-gray-50/50 dark:bg-white/[0.01]">
-                    <div className="flex items-center gap-1.5 mb-2.5">
-                      <MessageSquare size={12} className="text-[#0EA5E9]" />
-                      <span className="text-[10px] font-extrabold text-gray-400">
-                        COORDINATION CHAT CHANNEL (#desk-synergy)
-                      </span>
-                    </div>
-
-                    <div className="space-y-1.5 max-h-24 overflow-y-auto no-scrollbar text-[11px] mb-2">
-                      {demoChatMessages.map((m) => (
-                        <div key={m.id} className="flex gap-1.5 items-baseline">
-                          <span className="font-bold text-gray-700 dark:text-gray-300 shrink-0">
-                            {m.user}:
-                          </span>
-                          <span className="text-gray-500 dark:text-gray-400">{m.text}</span>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Mini input */}
-                    <form onSubmit={handleSendMessage} className="flex gap-1.5">
-                      <input
-                        type="text"
-                        placeholder="Type simulated peer message..."
-                        value={typedMessage}
-                        onChange={function (e) {
-                          setTypedMessage(e.target.value);
-                        }}
-                        className="flex-1 text-[11px] bg-white dark:bg-black/20 text-gray-900 dark:text-white px-2.5 py-1.5 rounded-lg border border-gray-200/50 dark:border-white/10 focus:outline-none focus:border-[#5C27FE]"
-                      />
-                      <button
-                        type="submit"
-                        className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-[#5C27FE] text-white cursor-pointer hover:bg-[#451ccf]"
+                  <div className="space-y-3">
+                    {sandboxTasks.map((task) => (
+                      <div
+                        key={task.id}
+                        onClick={() => toggleSandboxTaskComplete(task.id)}
+                        className={`p-4 rounded-2xl border transition-all duration-300 relative bg-white dark:bg-slate-900 shadow-sm hover:shadow-md cursor-pointer group ${
+                          task.completed
+                            ? "border-emerald-500/40 opacity-60"
+                            : task.priority === "high"
+                              ? "border-[#FF4D4D]/40"
+                              : task.priority === "medium"
+                                ? "border-[#FFB020]/40"
+                                : "border-emerald-500/40"
+                        }`}
                       >
-                        Send
-                      </button>
-                    </form>
+                        <div className="flex items-start justify-between gap-3 mb-2">
+                          <div className="flex gap-2 items-center">
+                            <span
+                              className={`text-[9px] font-bold px-2 py-0.5 rounded-md uppercase ${
+                                task.priority === "high"
+                                  ? "bg-[#FF4D4D]/10 text-[#FF4D4D]"
+                                  : task.priority === "medium"
+                                    ? "bg-[#FFB020]/10 text-[#FFB020]"
+                                    : "bg-emerald-500/10 text-emerald-500"
+                              }`}
+                            >
+                              {task.priority}
+                            </span>
+                            <span className="text-[9px] font-bold font-mono bg-blue-500/10 text-blue-500 px-2 py-0.5 rounded-md">
+                              {task.tag}
+                            </span>
+                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteSandboxTask(task.id);
+                            }}
+                            className="w-5 h-5 rounded-full bg-red-100 text-red-600 flex items-center justify-center text-[9px] font-bold shrink-0 ring-2 ring-white dark:ring-slate-900 hover:bg-red-200 transition-colors"
+                          >
+                            ×
+                          </button>
+                        </div>
+
+                        <h4
+                          className={`font-bold text-sm mb-1.5 line-clamp-2 text-center sm:text-left ${task.completed ? "line-through text-gray-400" : "text-gray-900 dark:text-white group-hover:text-[#5C27FE] transition-colors"}`}
+                        >
+                          {task.title}
+                        </h4>
+                        <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-4 line-clamp-2 leading-relaxed">
+                          {task.description}
+                        </p>
+
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pt-3 border-t border-gray-100 dark:border-white/5 text-center sm:text-left">
+                          <div className="flex items-center justify-center sm:justify-start gap-3 text-[10px] font-semibold text-gray-500">
+                            <div className="flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-300 transition-colors">
+                              <Calendar size={12} />
+                              <span>Today</span>
+                            </div>
+                            <div className="flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-300 transition-colors">
+                              <MessageSquare size={12} />
+                              <span>{task.comments}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-center sm:justify-end gap-1.5 text-[10px] font-bold">
+                            <span className="text-gray-400">Assigned by</span>
+                            <span className="bg-gray-100 dark:bg-white/10 px-1.5 py-0.5 rounded text-gray-600 dark:text-gray-300">
+                              You
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
 
               {/* Simulated Keyboard command overlays */}
-              <div className="mt-6 pt-4 border-t border-gray-100 dark:border-white/5 flex flex-wrap items-center justify-between gap-3 text-[10px] text-gray-400 font-semibold font-mono">
+              <div className="mt-6 pt-4 border-t border-gray-100 dark:border-white/5 flex flex-wrap items-center justify-center sm:justify-between gap-3 text-[10px] text-gray-400 font-semibold font-mono">
                 <span className="flex items-center gap-1">
                   <Command size={10} /> ⌘+N (New)
                 </span>
@@ -947,7 +942,7 @@ export default function LandingPage({
             </div>
           </div>
 
-          {/* Bento Card: Responsive Dual Layout Architecture (5 cols) */}
+          {/* Bento Card: Sidebar Navigation System (5 cols) */}
           <div className="md:col-span-5 p-5 md:p-6 lg:p-10 rounded-3xl border border-gray-200/50 dark:border-white/10 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl flex flex-col justify-between relative overflow-hidden group hover:border-[#0EA5E9]/30 transition-all duration-300">
             <div className="absolute bottom-0 right-0 w-36 h-36 rounded-full bg-[#0EA5E9]/5 blur-3xl pointer-events-none" />
 
@@ -956,22 +951,22 @@ export default function LandingPage({
                 <Layers size={15} />
               </div>
               <h3 className="font-extrabold text-lg lg:text-xl text-slate-950 dark:text-white leading-tight">
-                Responsive Layout Tuning
+                Intelligent Sidebar Navigation
               </h3>
               <p className="text-xs lg:text-sm text-slate-700 dark:text-slate-100 leading-relaxed font-normal">
-                Choose how your screen organizes itself. Switch natively between an iOS-inspired
-                bottom floating system-dock or a fluid top horizontal navigation array. Perfect for
-                tablets, phones, and full desktop monitors.
+                Navigate seamlessly across workspaces, groups, and personal tasks with our
+                collapsible sidebar. Quick access to all your projects with real-time sync and smart
+                filtering.
               </p>
             </div>
 
             {/* Dynamic toggler preview */}
             <div className="flex gap-2 p-1.5 rounded-lg bg-gray-100 dark:bg-black/40 text-[10px] lg:text-xs font-bold w-full">
               <span className="flex-1 py-1 px-2.5 rounded text-center bg-white dark:bg-slate-800 text-slate-950 dark:text-white shadow-xs">
-                Bottom Dock
+                Collapsed
               </span>
               <span className="flex-1 py-1 px-2.5 rounded text-center text-slate-500 dark:text-slate-400">
-                Top Navigation
+                Expanded
               </span>
             </div>
           </div>
@@ -1159,7 +1154,7 @@ export default function LandingPage({
             },
             {
               q: "Can I use the Workspace on my iPad or small Android Tablet?",
-              a: "Absolutely! NewDay includes beautiful dual responsive layouts which are custom-coded to adapt seamlessly to smaller tablets. You can toggle between a floating bottom navigation dock (best for split screen) or standard top nav panels instantly.",
+              a: "Absolutely. NewDay keeps the workspace responsive, but the more important piece is the role-aware invite flow and task-to-chat sync that stay usable across tablet and desktop sizes without changing how your data behaves.",
             },
             {
               q: "How does the AI Mentor generate modular curriculums?",
@@ -1330,7 +1325,7 @@ export default function LandingPage({
 
           {/* Right Column: Founder Interactive Core Narratives (7 cols) */}
           <div className="lg:col-span-12 xl:col-span-7 md:col-span-12 space-y-6">
-            <div className="space-y-2">
+            <div className="space-y-2 text-center sm:text-left">
               <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#5C27FE]/10 dark:bg-[#5C27FE]/15 text-[#5C27FE] dark:text-[#a085ff] text-[10px] font-bold font-mono uppercase">
                 <Sparkles size={10} />
                 <span>Philosophical Alignment</span>

@@ -101,7 +101,7 @@ tasksRouter.get("/", async (req, res, next) => {
   try {
     const result = await query<TaskRow>(
       `SELECT * FROM tasks
-       WHERE user_id = $1
+       WHERE user_id = $1::uuid OR payload->>'assigneeId' = $1::text
        ORDER BY created_at DESC`,
       [req.user!.id]
     );
@@ -124,10 +124,26 @@ tasksRouter.post("/", async (req, res, next) => {
     const body = createTaskSchema.parse(sanitizeValue(req.body));
     const id = makeId();
     const now = new Date().toISOString();
+    if (body.assigneeId && body.assigneeId !== req.user!.id) {
+      if (!body.groupId) {
+        throw new AppError(400, "Cannot assign task to another user without a group.", "INVALID_ASSIGNMENT");
+      }
+      const roleResult = await query<{ role: string }>(
+        "SELECT role FROM group_members WHERE group_id = $1 AND user_id = $2",
+        [body.groupId, req.user!.id]
+      );
+      const role = roleResult.rows[0]?.role;
+      if (role !== "admin" && role !== "owner") {
+        throw new AppError(403, "You must be an admin to assign tasks to other members.", "PERMISSION_DENIED");
+      }
+    }
+
     const payload = {
       ...body,
       id,
       assigneeId: body.assigneeId || req.user!.id,
+      assignedBy: body.assigneeId && body.assigneeId !== req.user!.id ? req.user!.id : undefined,
+      assignedByName: body.assigneeId && body.assigneeId !== req.user!.id ? req.user!.name : undefined,
       subtasks: body.subtasks || [],
       comments: body.comments || [],
       activities: body.activities || [
@@ -278,11 +294,28 @@ tasksRouter.put("/:id", async (req, res, next) => {
     }
 
     const existing = current.rows[0];
+    if (body.assigneeId && body.assigneeId !== existing.payload.assigneeId && body.assigneeId !== req.user!.id) {
+      const groupId = body.groupId || existing.payload.groupId;
+      if (!groupId) {
+        throw new AppError(400, "Cannot assign task to another user without a group.", "INVALID_ASSIGNMENT");
+      }
+      const roleResult = await query<{ role: string }>(
+        "SELECT role FROM group_members WHERE group_id = $1 AND user_id = $2",
+        [groupId, req.user!.id]
+      );
+      const role = roleResult.rows[0]?.role;
+      if (role !== "admin" && role !== "owner") {
+        throw new AppError(403, "You must be an admin to assign tasks to other members.", "PERMISSION_DENIED");
+      }
+    }
+
     const mergedPayload = {
       ...existing.payload,
       ...body,
       id: existing.id,
       assigneeId: body.assigneeId || existing.payload.assigneeId || req.user!.id,
+      assignedBy: body.assigneeId && body.assigneeId !== existing.payload.assigneeId && body.assigneeId !== req.user!.id ? req.user!.id : existing.payload.assignedBy,
+      assignedByName: body.assigneeId && body.assigneeId !== existing.payload.assigneeId && body.assigneeId !== req.user!.id ? req.user!.name : existing.payload.assignedByName,
     };
 
     const result = await query<TaskRow>(

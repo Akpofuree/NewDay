@@ -8,7 +8,7 @@ import {
   ChatChannel,
   ChatMessageWithExtras,
 } from "../types";
-import { apiFetch } from "../lib/api";
+import { apiFetch, readJsonResponse } from "../lib/api";
 
 type UseAuthHandlersProps = {
   setCurrentUser: Dispatch<SetStateAction<User | null>>;
@@ -89,7 +89,7 @@ export default function useAuthHandlers({
     try {
       const res = await apiFetch("/api/auth/me");
       if (res.ok) {
-        const data = await res.json();
+        const data = await readJsonResponse<any>(res);
         const user = data.user || data;
         setCurrentUser(user);
         setShowLanding(false);

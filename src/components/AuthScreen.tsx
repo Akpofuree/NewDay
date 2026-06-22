@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { GoogleLogin } from "@react-oauth/google";
 import { jwtDecode } from "jwt-decode";
-import { apiFetch } from "../lib/api";
+import { apiFetch, readJsonResponse } from "../lib/api";
 import PasswordStrengthIndicator, { isPasswordStrong } from "./PasswordStrengthIndicator";
 import LogoLoader from "./animations/LogoLoader";
 const logoImage = new URL("../images/logo.png", import.meta.url).href;
@@ -65,12 +65,12 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
         }),
       });
 
-      const data = await response.json();
+      const data = await readJsonResponse<any>(response);
       if (!response.ok) {
-        throw new Error(data.error || "Google login failed.");
+        throw new Error(data?.error || "Google login failed.");
       }
 
-      onAuthSuccess(data.user || data);
+      onAuthSuccess(data?.user || data);
     } catch (err: any) {
       setError(err.message || "Google authentication failed.");
     } finally {
@@ -103,12 +103,12 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
           body: JSON.stringify({ email }),
         });
 
-        const data = await response.json();
+        const data = await readJsonResponse<any>(response);
         if (!response.ok) {
-          throw new Error(data.error || "Failed to request password reset.");
+          throw new Error(data?.error || "Failed to request password reset.");
         }
 
-        setResetSuccess(data.message || "If that email exists, a reset link will be sent.");
+        setResetSuccess(data?.message || "If that email exists, a reset link will be sent.");
         setIsReset(false);
       } catch (err: any) {
         setError(err.message || "Failed to request password reset.");
@@ -132,12 +132,12 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
           body: JSON.stringify({ name, email, password }),
         });
 
-        const data = await response.json();
+        const data = await readJsonResponse<any>(response);
         if (!response.ok) {
-          throw new Error(data.errors?.join(" ") || data.error || "Failed to sign up.");
+          throw new Error(data?.errors?.join(" ") || data?.error || "Failed to sign up.");
         }
 
-        onAuthSuccess(data);
+        onAuthSuccess(data?.user || data);
       } catch (err: any) {
         setError(err.message || "Connection to databank failed.");
       } finally {
@@ -165,22 +165,22 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
           throw new Error("Server unavailable — please try again later");
         }
 
-        const data = await response.json();
+        const data = await readJsonResponse<any>(response);
         if (!response.ok) {
-          if (response.status === 429 && data.retryAfterSeconds) {
+          if (response.status === 429 && data?.retryAfterSeconds) {
             setLockoutSeconds(data.retryAfterSeconds);
             setError(formatLockoutMessage(data.retryAfterSeconds));
             return;
           }
-          if (response.status === 403 && data.code === "ACCOUNT_PERMANENTLY_LOCKED") {
+          if (response.status === 403 && data?.code === "ACCOUNT_PERMANENTLY_LOCKED") {
             setIsPermanentLock(true);
-            setError(data.error || "Account permanently locked — contact support");
+            setError(data?.error || "Account permanently locked — contact support");
             return;
           }
-          throw new Error(data.error || "Invalid email or password");
+          throw new Error(data?.error || "Invalid email or password");
         }
 
-        onAuthSuccess(data);
+        onAuthSuccess(data?.user || data);
       } catch (err: any) {
         if (err?.message?.includes("Failed to fetch")) {
           setError("Server unavailable — please try again later");
@@ -491,3 +491,5 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
     </div>
   );
 }
+
+

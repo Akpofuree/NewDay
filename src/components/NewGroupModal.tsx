@@ -34,8 +34,8 @@ export default function NewGroupModal({
         className="absolute inset-0 bg-black/40 dark:bg-black/70 backdrop-blur-md"
         onClick={() => setIsNewGroupOpen(false)}
       />
-      <div className="relative w-full max-w-sm rounded-2xl glass-panel shadow-2xl p-5 z-10 pointer-events-auto">
-        <div className="flex items-center justify-between pb-3 border-b border-gray-200/50 dark:border-white/5 mb-4">
+      <div className="relative w-full max-w-2xl max-h-[90vh] flex flex-col rounded-2xl glass-panel shadow-2xl overflow-hidden z-10 pointer-events-auto">
+        <div className="flex-shrink-0 flex items-center justify-between p-5 pb-3 border-b border-gray-200/50 dark:border-white/5">
           <span className="font-sora font-extrabold text-sm text-gray-900 dark:text-white">
             Initialize Project Group
           </span>
@@ -47,69 +47,68 @@ export default function NewGroupModal({
           </button>
         </div>
 
-        <form onSubmit={handleCreateGroup} className="space-y-4 text-left">
-          <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">
-              Project Group Name
-            </label>
-            <input
-              type="text"
-              placeholder="e.g., Marketing Campaign"
-              value={newGroupName}
-              onChange={(e) => setNewGroupName(e.target.value)}
-              className="w-full text-xs bg-white dark:bg-black/15 text-gray-900 dark:text-white px-3 py-2 rounded-xl border border-gray-200/50 dark:border-white/10 focus:outline-none focus:border-[#5C27FE]"
-              autoFocus
-            />
-          </div>
-
-          <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">
-              Brief Workspace Description
-            </label>
-            <textarea
-              placeholder="Review channels, outreach coordinates..."
-              value={newGroupDesc}
-              onChange={(e) => setNewGroupDesc(e.target.value)}
-              rows={2}
-              className="w-full text-xs bg-white dark:bg-black/15 text-gray-900 dark:text-white px-3 py-2 rounded-xl border border-gray-200/50 dark:border-white/10 focus:outline-none focus:border-[#5C27FE]"
-            />
-          </div>
-
-          <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-550 mb-1.5">
-              Select Visual Brand Token Tag
-            </label>
-            <div className="flex gap-2.5">
-              {[
-                "#5C27FE",
-                "#FF4D4D",
-                "#00C48C",
-                "#FFB020",
-                "#0EA5E9",
-                "#EC4899",
-              ].map((hex) => (
-                <button
-                  key={hex}
-                  type="button"
-                  onClick={() => setNewGroupColor(hex)}
-                  className={`w-6 h-6 rounded-full border border-white/45 relative shadow-sm cursor-pointer transition-transform ${
-                    newGroupColor === hex
-                      ? "scale-115 ring-2 ring-[#5C27FE]/40"
-                      : "hover:scale-105"
-                  }`}
-                  style={{ backgroundColor: hex }}
-                >
-                  {newGroupColor === hex && (
-                    <span className="absolute inset-0 flex items-center justify-center text-white text-[10px]">
-                      ✓
-                    </span>
-                  )}
-                </button>
-              ))}
+        {/* Form Body - scrollable */}
+        <div className="flex-1 overflow-y-auto p-5">
+          <form onSubmit={handleCreateGroup} className="space-y-4 text-left">
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">
+                Project Group Name
+              </label>
+              <input
+                type="text"
+                placeholder="e.g., Marketing Campaign"
+                value={newGroupName}
+                onChange={(e) => setNewGroupName(e.target.value)}
+                className="w-full text-xs bg-white dark:bg-black/15 text-gray-900 dark:text-white px-3 py-2 rounded-xl border border-gray-200/50 dark:border-white/10 focus:outline-none focus:border-[#5C27FE]"
+                autoFocus
+              />
             </div>
-          </div>
 
-          <div className="flex justify-end gap-2.5 pt-3 border-t border-gray-200/50 dark:border-white/5 mt-5">
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">
+                Brief Workspace Description
+              </label>
+              <textarea
+                placeholder="Review channels, outreach coordinates..."
+                value={newGroupDesc}
+                onChange={(e) => setNewGroupDesc(e.target.value)}
+                rows={2}
+                className="w-full text-xs bg-white dark:bg-black/15 text-gray-900 dark:text-white px-3 py-2 rounded-xl border border-gray-200/50 dark:border-white/10 focus:outline-none focus:border-[#5C27FE]"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-550 mb-1.5">
+                Select Visual Brand Token Tag
+              </label>
+              <div className="flex gap-2.5">
+                {["#5C27FE", "#FF4D4D", "#00C48C", "#FFB020", "#0EA5E9", "#EC4899"].map((hex) => (
+                  <button
+                    key={hex}
+                    type="button"
+                    onClick={() => setNewGroupColor(hex)}
+                    className={`w-6 h-6 rounded-full border border-white/45 relative shadow-sm cursor-pointer transition-transform ${
+                      newGroupColor === hex
+                        ? "scale-115 ring-2 ring-[#5C27FE]/40"
+                        : "hover:scale-105"
+                    }`}
+                    style={{ backgroundColor: hex }}
+                  >
+                    {newGroupColor === hex && (
+                      <span className="absolute inset-0 flex items-center justify-center text-white text-[10px]">
+                        ✓
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </form>
+        </div>
+
+        {/* Sticky footer for form actions */}
+        <div className="flex-shrink-0 sticky bottom-0 bg-white dark:bg-[#1A1A2E] pt-3 pb-4 px-5 border-t border-gray-200/50 dark:border-white/5">
+          <div className="flex justify-end gap-2.5">
             <button
               type="button"
               onClick={() => setIsNewGroupOpen(false)}
@@ -118,13 +117,13 @@ export default function NewGroupModal({
               Cancel
             </button>
             <button
-              type="submit"
+              onClick={handleCreateGroup}
               className="btn-primary-shimmer ripple-effect px-4.5 py-1.5 text-xs font-bold text-white bg-[#5C27FE] hover:bg-[#4a1ee3] rounded-lg cursor-pointer shadow-md shadow-[#5C27FE]/20"
             >
               Create Project Group
             </button>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );

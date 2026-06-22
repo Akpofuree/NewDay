@@ -124,6 +124,7 @@ function mapChatMessageRow(row: any) {
     isSystem: Boolean(payload.isSystem),
     createdAt: row.created_at?.toISOString?.() || row.created_at,
     updatedAt: row.updated_at?.toISOString?.() || row.updated_at,
+    replyToMessageId: row.reply_to_message_id || undefined,
   };
 }
 
@@ -223,12 +224,12 @@ async function requireGroupRole(
 
 workspaceRouter.get("/db", async (req, res, next) => {
   try {
-    const [tasks, groups, goals, channels, chatMessages] = await Promise.all([
+    const [tasks, groups, goals, channels, chatMessages, sharedUsers] = await Promise.all([
       query(
         `SELECT t.id, t.user_id, t.title, t.description, t.status, t.priority,
                 t.due_date, t.payload, t.created_at, t.updated_at, t.tags
          FROM tasks t
-         WHERE t.user_id = $1
+         WHERE t.user_id = $1::uuid OR t.payload->>'assigneeId' = $1::text
          ORDER BY t.created_at DESC`,
         [req.user!.id]
       ),
@@ -247,9 +248,9 @@ workspaceRouter.get("/db", async (req, res, next) => {
                 gm.role,
                 COALESCE(array_agg(DISTINCT all_members.user_id::text) FILTER (WHERE all_members.user_id IS NOT NULL), '{}') AS member_ids
          FROM groups g
-         LEFT JOIN group_members gm ON gm.group_id = g.id AND gm.user_id = $1
+         LEFT JOIN group_members gm ON gm.group_id = g.id AND gm.user_id = $1::uuid
          LEFT JOIN group_members all_members ON all_members.group_id = g.id
-         WHERE g.user_id = $1 OR g.user_id IS NULL OR gm.user_id IS NOT NULL
+         WHERE g.user_id = $1::uuid OR g.user_id IS NULL OR gm.user_id IS NOT NULL
          GROUP BY g.id, g.user_id, g.owner_id, g.name, g.description,
                   g.color, g.visibility, g.avatar_url, g.payload,
                   g.created_at, g.updated_at, gm.role
@@ -266,7 +267,7 @@ workspaceRouter.get("/db", async (req, res, next) => {
                 goals.milestones,
                 goals.created_at
          FROM goals
-         WHERE goals.user_id = $1
+         WHERE goals.user_id = $1::uuid
          ORDER BY goals.created_at DESC`,
         [req.user!.id]
       ),
@@ -279,15 +280,15 @@ workspaceRouter.get("/db", async (req, res, next) => {
                 c.created_at,
                 COALESCE(array_agg(DISTINCT cm.user_id::text) FILTER (WHERE cm.user_id IS NOT NULL), '{}') AS member_ids,
                 COUNT(DISTINCT m.id) FILTER (
-                  WHERE m.sender_id <> $1
+                  WHERE m.sender_id <> $1::uuid
                     AND (cm.last_read_at IS NULL OR m.created_at > cm.last_read_at)
                 ) AS unread_count
          FROM channels c
          JOIN groups g ON g.id = c.group_id
-         LEFT JOIN group_members gm2 ON gm2.group_id = g.id AND gm2.user_id = $1
+         LEFT JOIN group_members gm2 ON gm2.group_id = g.id AND gm2.user_id = $1::uuid
          LEFT JOIN channel_members cm ON cm.channel_id = c.id
          LEFT JOIN channel_messages m ON m.channel_id = c.id
-         WHERE (g.user_id = $1 OR g.user_id IS NULL OR gm2.user_id IS NOT NULL)
+         WHERE (g.user_id = $1::uuid OR g.user_id IS NULL OR gm2.user_id IS NOT NULL)
          GROUP BY c.id, c.group_id, c.name, c.description, c.created_by, c.created_at
          ORDER BY c.created_at ASC`,
         [req.user!.id]
@@ -332,10 +333,19 @@ workspaceRouter.get("/db", async (req, res, next) => {
          ) AS m
          JOIN channels c ON c.id = m.channel_id
          JOIN groups g ON g.id = c.group_id
-         LEFT JOIN group_members gm ON gm.group_id = g.id AND gm.user_id = $1
-         WHERE g.user_id = $1 OR g.user_id IS NULL OR gm.user_id IS NOT NULL
+         LEFT JOIN group_members gm ON gm.group_id = g.id AND gm.user_id = $1::uuid
+         WHERE g.user_id = $1::uuid OR g.user_id IS NULL OR gm.user_id IS NOT NULL
          ORDER BY m.created_at DESC
          LIMIT 50`,
+        [req.user!.id]
+      ),
+      query(
+        `SELECT DISTINCT u.id, u.name, u.email, u.avatar_url, u.bio, u.timezone
+         FROM users u
+         JOIN group_members gm ON gm.user_id = u.id
+         WHERE gm.group_id IN (
+           SELECT group_id FROM group_members WHERE user_id = $1::uuid
+         )`,
         [req.user!.id]
       ),
     ]);
@@ -379,7 +389,14 @@ workspaceRouter.get("/db", async (req, res, next) => {
     });
 
     res.json({
-      users: [req.user],
+      users: sharedUsers.rows.map((row: any) => ({
+        id: row.id,
+        name: row.name,
+        email: row.email,
+        avatarUrl: row.avatar_url,
+        bio: row.bio || "",
+        timezone: row.timezone || "UTC",
+      })),
       currentUser: req.user,
       groups: groupsPayload.length ? groupsPayload : defaultGroups,
       tasks: mappedTasks,
@@ -496,8 +513,7 @@ workspaceRouter.post("/groups", async (req, res, next) => {
         { isSystem: true },
       ]
     );
-
-    res.status(201).json(finalPayload);
+    res.status(201).json({ ...finalPayload, role: "owner" });
   } catch (error) {
     next(error);
   }
@@ -583,27 +599,37 @@ workspaceRouter.post("/groups/:groupId/invitations", async (req, res, next) => {
     const role = payload.role === "admin" ? "admin" : "member";
     const id = `invite_${makeId()}`;
     const email = payload.email ? String(payload.email).toLowerCase() : null;
+    const inviteUrl = `${getAppOrigin(req)}/join?token=${token}`;
+
     await query(
       `INSERT INTO group_invitations (id, group_id, email, token_hash, role, invited_by, expires_at)
        VALUES ($1, $2, $3, $4, $5, $6, NOW() + INTERVAL '7 days')`,
       [id, req.params.groupId, email, tokenHash, role, req.user!.id]
     );
-    const inviteUrl = `${getAppOrigin(req)}/join?token=${token}`;
+
+    let emailSent = false;
     if (email) {
       const group = await query("SELECT name FROM groups WHERE id = $1", [req.params.groupId]);
-      await sendWorkspaceInviteEmail(
-        email,
-        req.user!.name,
-        group.rows[0]?.name || "NewDay workspace",
-        inviteUrl
-      );
+      try {
+        await sendWorkspaceInviteEmail(
+          email,
+          req.user!.name,
+          group.rows[0]?.name || "NewDay workspace",
+          inviteUrl
+        );
+        emailSent = true;
+      } catch (emailError) {
+        console.error("[Invite] Email delivery failed; invite saved anyway:", emailError);
+      }
     }
+
     res.status(201).json({
       id,
       token,
       inviteUrl,
       role,
       email,
+      emailSent,
     });
   } catch (error) {
     next(error);
@@ -1185,13 +1211,14 @@ workspaceRouter.post("/chat/messages", async (req, res, next) => {
       content: String(payload.content || "").slice(0, 5000),
       attachments: Array.isArray(payload.attachments) ? payload.attachments : [],
       taskRefId: payload.taskRefId || undefined,
+      replyToMessageId: payload.replyToMessageId || undefined,
       createdAt,
       updatedAt: createdAt,
     };
 
     await query(
-      `INSERT INTO chat_messages (id, channel_id, user_id, user_name, user_avatar, content, payload, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `INSERT INTO chat_messages (id, channel_id, user_id, user_name, user_avatar, content, payload, reply_to_message_id, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        ON CONFLICT (id) DO NOTHING`,
       [
         finalMessage.id,
@@ -1208,14 +1235,16 @@ workspaceRouter.post("/chat/messages", async (req, res, next) => {
           userName: req.user!.name,
           userAvatar: finalMessage.userAvatar || null,
           taskRefId: finalMessage.taskRefId,
+          replyToMessageId: finalMessage.replyToMessageId,
         },
+        finalMessage.replyToMessageId || null,
         finalMessage.createdAt,
       ]
     );
 
     await query(
-      `INSERT INTO channel_messages (id, channel_id, sender_id, content, attachments, payload, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `INSERT INTO channel_messages (id, channel_id, sender_id, content, attachments, payload, reply_to_message_id, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        ON CONFLICT (id) DO NOTHING`,
       [
         id,
@@ -1231,6 +1260,7 @@ workspaceRouter.post("/chat/messages", async (req, res, next) => {
           userName: req.user!.name,
           taskRefId: finalMessage.taskRefId,
         },
+        finalMessage.replyToMessageId || null,
         createdAt,
         createdAt,
       ]
@@ -1272,7 +1302,8 @@ workspaceRouter.get("/chat/messages", async (req, res, next) => {
               msg.attachments,
               msg.payload,
               msg.created_at,
-              msg.updated_at
+              msg.updated_at,
+              msg.reply_to_message_id
        FROM (
           SELECT cm.id,
                  cm.channel_id,
@@ -1283,7 +1314,8 @@ workspaceRouter.get("/chat/messages", async (req, res, next) => {
                  cm.attachments,
                  cm.payload,
                  cm.created_at,
-                 cm.updated_at
+                 cm.updated_at,
+                 cm.reply_to_message_id
           FROM channel_messages cm
           JOIN users u ON u.id = cm.sender_id
          UNION ALL
@@ -1296,7 +1328,8 @@ workspaceRouter.get("/chat/messages", async (req, res, next) => {
                 '[]'::jsonb AS attachments,
                 '{}'::jsonb AS payload,
                 chat.created_at,
-                chat.created_at AS updated_at
+                chat.created_at AS updated_at,
+                chat.reply_to_message_id
          FROM chat_messages chat
          WHERE chat.id NOT IN (SELECT channel_messages.id FROM channel_messages)
        ) AS msg
@@ -1391,11 +1424,11 @@ workspaceRouter.delete("/chat/messages/:messageId", async (req, res, next) => {
         const groupId = channel.rows[0].group_id;
         const role = await getGroupRole(groupId, req.user!.id);
         if (!canAdmin(role)) {
-          res.status(403).json({ error: "You can only delete your own messages" });
+          res.status(403).json({ error: "You do not have permission to delete this message." });
           return;
         }
       } else {
-        res.status(403).json({ error: "You can only delete your own messages" });
+        res.status(403).json({ error: "You do not have permission to delete this message." });
         return;
       }
     }
@@ -1404,6 +1437,202 @@ workspaceRouter.delete("/chat/messages/:messageId", async (req, res, next) => {
     await query("DELETE FROM channel_messages WHERE id = $1", [messageId]);
 
     res.json({ success: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
+workspaceRouter.post("/groups/:groupId/invite-link", async (req, res, next) => {
+  try {
+    const groupId = req.params.groupId;
+    const userId = req.user!.id;
+
+    // Check if user has permission to create invite links (owner or admin in the group)
+    const membership = await query(
+      `SELECT role FROM group_members WHERE group_id = $1 AND user_id = $2`,
+      [groupId, userId]
+    );
+
+    if (!membership.rowCount) {
+      res.status(403).json({ error: "You are not a member of this group" });
+      return;
+    }
+
+    const role = membership.rows[0].role;
+    console.log("[InviteLink] role check:", { groupId, userId, role });
+    if (role !== "owner" && role !== "admin") {
+      res.status(403).json({ error: "Only group owners and admins can create invite links" });
+      return;
+    }
+
+    // Generate a unique token
+    const token = randomBytes(32).toString("hex");
+    const inviteLinkId = `invite_${makeId()}`;
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(); // 7 days
+
+    await query(
+      `INSERT INTO invite_links (id, group_id, token, created_by, created_at, expires_at, is_active)
+       VALUES ($1, $2, $3, $4, $5, $6, 1)`,
+      [inviteLinkId, groupId, token, userId, new Date().toISOString(), expiresAt]
+    );
+
+    const inviteUrl = `${process.env.APP_URL || "http://localhost:5173"}/invite/${token}`;
+
+    res.json({ inviteUrl, token, expiresAt });
+  } catch (error) {
+    next(error);
+  }
+});
+
+workspaceRouter.get("/invite/:token", async (req, res, next) => {
+  try {
+    const { token } = req.params;
+
+    const inviteLink = await query(
+      `SELECT il.*, g.name as group_name, g.color as group_color
+       FROM invite_links il
+       JOIN groups g ON g.id = il.group_id
+       WHERE il.token = $1 AND il.is_active = 1`,
+      [token]
+    );
+
+    if (!inviteLink.rowCount) {
+      res.status(404).json({ error: "Invalid or expired invite link" });
+      return;
+    }
+
+    const invite = inviteLink.rows[0];
+
+    // Check if expired
+    if (invite.expires_at && new Date(invite.expires_at) < new Date()) {
+      res.status(410).json({ error: "Invite link has expired" });
+      return;
+    }
+
+    res.json({
+      groupId: invite.group_id,
+      groupName: invite.group_name,
+      groupColor: invite.group_color,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+workspaceRouter.get("/groups/:groupId/my-role", async (req, res, next) => {
+  try {
+    const groupId = req.params.groupId;
+    const userId = req.user!.id;
+
+    const role = await getGroupRole(groupId, userId);
+    const isAdmin = canAdmin(role);
+
+    res.json({
+      role: role || "member",
+      isAdmin,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+workspaceRouter.post("/groups/:groupId/members", async (req, res, next) => {
+  try {
+    const groupId = req.params.groupId;
+    const { email } = req.body;
+    const userId = req.user!.id;
+
+    // Check if user has permission to add members (owner or admin in the group)
+    await requireGroupAdmin(groupId, userId);
+
+    // Find user by email
+    const userResult = await query(`SELECT id, name FROM users WHERE email = $1`, [email]);
+
+    if (!userResult.rowCount) {
+      res.status(404).json({ error: "User not found with this email" });
+      return;
+    }
+
+    const targetUserId = userResult.rows[0].id;
+
+    // Check if user is already a member
+    const existingMember = await query(
+      `SELECT * FROM group_members WHERE group_id = $1 AND user_id = $2`,
+      [groupId, targetUserId]
+    );
+
+    if (existingMember.rowCount) {
+      res.status(400).json({ error: "User is already a member of this group" });
+      return;
+    }
+
+    // Add user to group as a member
+    await query(
+      `INSERT INTO group_members (group_id, user_id, role, joined_at)
+       VALUES ($1, $2, 'member', $3)`,
+      [groupId, targetUserId, new Date().toISOString()]
+    );
+
+    // Update group member_ids
+    await query(`UPDATE groups SET member_ids = array_append(member_ids, $1) WHERE id = $2`, [
+      targetUserId,
+      groupId,
+    ]);
+
+    res.json({ success: true, userId: targetUserId, userName: userResult.rows[0].name });
+  } catch (error) {
+    next(error);
+  }
+});
+
+workspaceRouter.post("/invite/:token/accept", async (req, res, next) => {
+  try {
+    const { token } = req.params;
+    const userId = req.user!.id;
+
+    const inviteLink = await query(
+      `SELECT * FROM invite_links WHERE token = $1 AND is_active = 1`,
+      [token]
+    );
+
+    if (!inviteLink.rowCount) {
+      res.status(404).json({ error: "Invalid or expired invite link" });
+      return;
+    }
+
+    const invite = inviteLink.rows[0];
+
+    // Check if expired
+    if (invite.expires_at && new Date(invite.expires_at) < new Date()) {
+      res.status(410).json({ error: "Invite link has expired" });
+      return;
+    }
+
+    // Check if user is already a member
+    const existingMember = await query(
+      `SELECT * FROM group_members WHERE group_id = $1 AND user_id = $2`,
+      [invite.group_id, userId]
+    );
+
+    if (existingMember.rowCount) {
+      res.status(400).json({ error: "You are already a member of this group" });
+      return;
+    }
+
+    // Add user to group as a member
+    await query(
+      `INSERT INTO group_members (group_id, user_id, role, joined_at)
+       VALUES ($1, $2, 'member', $3)`,
+      [invite.group_id, userId, new Date().toISOString()]
+    );
+
+    // Update group member_ids
+    await query(`UPDATE groups SET member_ids = array_append(member_ids, $1) WHERE id = $2`, [
+      userId,
+      invite.group_id,
+    ]);
+
+    res.json({ success: true, groupId: invite.group_id });
   } catch (error) {
     next(error);
   }
@@ -1434,24 +1663,12 @@ workspaceRouter.patch("/chat/messages/:messageId", async (req, res, next) => {
       ? channelMessage.rows[0].channel_id
       : chatMessage.rows[0].channel_id;
 
-    // Check if user is the message sender or has admin/owner role
+    // Only the original message sender can edit their message
     const isSender = senderId === req.user!.id || userId === req.user!.id;
 
     if (!isSender) {
-      // Get group_id from channel to check role
-      const channel = await query(`SELECT group_id FROM channels WHERE id = $1`, [channelId]);
-
-      if (channel.rowCount) {
-        const groupId = channel.rows[0].group_id;
-        const role = await getGroupRole(groupId, req.user!.id);
-        if (!canAdmin(role)) {
-          res.status(403).json({ error: "You can only edit your own messages" });
-          return;
-        }
-      } else {
-        res.status(403).json({ error: "You can only edit your own messages" });
-        return;
-      }
+      res.status(403).json({ error: "You can only edit your own messages." });
+      return;
     }
 
     await query(

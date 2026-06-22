@@ -66,6 +66,8 @@ export interface Task {
   priority: TaskPriority;
   dueDate?: string; // ISO string or YYYY-MM-DDTHH:MM
   assigneeId?: string;
+  assignedBy?: string;
+  assignedByName?: string;
   groupId?: string; // project/group ID if applicable
   tags?: string[];
   subtasks?: Subtask[];
@@ -132,6 +134,7 @@ export interface ChatMessage {
 export interface ChatMessageWithExtras extends ChatMessage {
   attachments?: MessageAttachment[];
   taskRefId?: string;
+  replyToMessageId?: string;
   updatedAt?: string;
   isSystem?: boolean;
 }
